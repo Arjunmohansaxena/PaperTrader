@@ -42,3 +42,20 @@ def record_user_transaction(user_id: int, transaction: Transaction):
         (user_id, transaction.symbol, transaction.side, transaction.quantity, transaction.price, transaction.timestamp),
     )
     save_user_portfolio(user_id, get_user_portfolio(user_id))  # Update the portfolio after recording the transaction
+
+def get_user_transaction_history(user_id: int) -> list[Transaction]:
+    db_manager = DatabaseManager()  # Initialize the database manager
+    transactions_rows = db_manager.fetch_all(
+        "SELECT * FROM transactions WHERE user_id = ? ORDER BY timestamp DESC", (user_id,)
+    )
+    transactions = []
+    for row in transactions_rows:
+        transaction = Transaction(
+            symbol=row["symbol"],
+            side=row["side"],
+            quantity=row["quantity"],
+            price=row["price"],
+            timestamp=row["timestamp"]
+        )
+        transactions.append(transaction)
+    return transactions
