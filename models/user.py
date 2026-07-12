@@ -3,7 +3,7 @@ import os
 
 
 class User:
-    def __init__(self, username: str, email: str, password: str, user_id: int | None = None):
+    def __init__(self, username: str, email: str, password: str, user_id: str | None = None):
         self.user_id = user_id
         self.username = username
         self.email = email
