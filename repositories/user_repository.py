@@ -2,7 +2,7 @@ from models.user import User
 from database.db_manager import DatabaseManager
 
 
-def create_user(user_id: str, username: str, email: str, password: str) -> User:
+def create_user(user_id: int, username: str, email: str, password: str) -> User:
     if get_user_by_id(user_id) is not None:
         raise ValueError(f"User with ID {user_id} already exists.")
     new_user = User(username=username, email=email, password=password, user_id=user_id)
