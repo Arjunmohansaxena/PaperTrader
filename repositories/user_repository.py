@@ -1,40 +1,56 @@
-from models.user import User
+import os
+
 from database.db_manager import DatabaseManager
+from models.user import User
+
+DEFAULT_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "database", "PaperTrader.db")
 
 
-def create_user(user_id: int, username: str, email: str, password: str) -> User:
-    if get_user_by_id(user_id) is not None:
-        raise ValueError(f"User with ID {user_id} already exists.")
-    new_user = User(username=username, email=email, password=password, user_id=user_id)
-    db_manager = DatabaseManager()  # Initialize the database manager
-    db_manager.execute(
-        "INSERT INTO users (user_id, username, email, password_hash) VALUES (?, ?, ?, ?)",
-        (new_user.user_id, new_user.username, new_user.email, new_user.password_hash),
-    )
-    return new_user
+class UserRepository:
+    def __init__(self, db_manager: DatabaseManager | None = None):
+        if db_manager is not None:
+            self.db_manager = db_manager
+        else:
+            self.db_manager = DatabaseManager(DEFAULT_DB_PATH)
 
-def authenticate_user(user_id: str, password: str) -> bool:
-    db_manager = DatabaseManager()  # Initialize the database manager
-    user_row = db_manager.fetch_one(
-        "SELECT * FROM users WHERE user_id = ?", (user_id,)
-    )
-    if user_row:
-        stored_password_hash = user_row["password_hash"]
-        user = User(username=user_row["username"], email=user_row["email"], password="", user_id=user_row["user_id"])
-        user.password_hash = stored_password_hash  # Set the stored hash for verification
-        return user.verify_password(password)
-    return False
-
-def get_user_by_id(user_id: str) -> User | None:
-    db_manager = DatabaseManager()  # Initialize the database manager
-    user_row = db_manager.fetch_one(
-        "SELECT * FROM users WHERE user_id = ?", (user_id,)
-    )
-    if user_row:
-        return User(
-            username=user_row["username"],
-            email=user_row["email"],
-            password="",  # Password is not retrieved for security reasons
-            user_id=user_row["user_id"]
+    def create_user(self, username: str, email: str, password: str) -> User:
+        if self.get_by_username(username) is not None:
+            raise ValueError(f"Username '{username}' is already taken.")
+        new_user = User(username=username, email=email, password=password)
+        cursor = self.db_manager.execute(
+            "INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)",
+            (new_user.username, new_user.email, new_user.password_hash),
         )
-    return None
+        new_user.user_id = cursor.lastrowid
+        return new_user
+
+    def authenticate(self, username: str, password: str) -> User | None:
+        row = self.db_manager.fetch_one(
+            "SELECT user_id, username, email, password_hash FROM users WHERE username = ?",
+            (username,),
+        )
+        if row is None:
+            return None
+        user = User(username=row[1], email=row[2], password="", user_id=row[0])
+        user.password_hash = row[3]
+        if user.verify_password(password):
+            return user
+        return None
+
+    def get_by_username(self, username: str) -> User | None:
+        row = self.db_manager.fetch_one(
+            "SELECT user_id, username, email FROM users WHERE username = ?",
+            (username,),
+        )
+        if row is None:
+            return None
+        return User(username=row[1], email=row[2], password="", user_id=row[0])
+
+    def get_by_id(self, user_id: int) -> User | None:
+        row = self.db_manager.fetch_one(
+            "SELECT user_id, username, email FROM users WHERE user_id = ?",
+            (user_id,),
+        )
+        if row is None:
+            return None
+        return User(username=row[1], email=row[2], password="", user_id=row[0])

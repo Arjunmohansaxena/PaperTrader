@@ -20,12 +20,16 @@ class PortfolioRepository:
             "UPDATE users SET balance = ? WHERE user_id = ?",
             (portfolio.cash_balance, user_id),
         )
+        self.db_manager.execute(
+            "DELETE FROM holdings WHERE user_id = ?",
+            (user_id,),
+        )
         for position in portfolio.positions.values():
             self.db_manager.execute(
                 "INSERT OR REPLACE INTO holdings (user_id, stock_name, quantity, avg_buy_price) VALUES (?, ?, ?, ?)",
                 (user_id, position.symbol, position.quantity, position.avg_buy_price),
             )
-
+            
     def get_by_user_id(self, user_id: int) -> Portfolio | None:
         user_row = self.db_manager.fetch_one(
             "SELECT balance FROM users WHERE user_id = ?", (user_id,)

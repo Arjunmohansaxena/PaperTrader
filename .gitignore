@@ -16,3 +16,9 @@ build/
 .idea/
 .vscode/
 .env
+
+# Database files
+database/
+*.db
+*.sqlite
+*.sqlite3

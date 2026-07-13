@@ -8,6 +8,10 @@ class DatabaseManager:
         self._connection = sqlite3.connect(db_path)
         self._connection.row_factory = sqlite3.Row
 
+    def executescript(self, script: str):
+        self._connection.executescript(script)
+        self._connection.commit()
+
     def execute(self, query: str, params: tuple | None = None):
         cursor = self._connection.cursor()
         cursor.execute(query, params or ())
