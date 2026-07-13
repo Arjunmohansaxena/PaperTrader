@@ -1,7 +1,3 @@
-
-import os
-import sqlite3
-
 from database.db_manager import DatabaseManager
 from models.portfolio import Portfolio
 from models.position import Position
@@ -13,7 +9,7 @@ class PortfolioRepository:
         if db_manager is not None:
             self.db_manager = db_manager
         else:
-            self.db_manager = DatabaseManager(os.path.join("database", "PaperTrader.db"), initialize_schema=False)
+            self.db_manager = DatabaseManager("database_path")  # Use the default database path if no db_manager is provided
 
     def save(self, portfolio: Portfolio, user_id: int):
         self.db_manager.execute(
