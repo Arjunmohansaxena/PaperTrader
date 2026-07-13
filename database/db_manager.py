@@ -2,7 +2,7 @@ import sqlite3
 
 
 class DatabaseManager:
-    def __init__(self, db_path: str):
+    def __init__(self, db_path:str):
         self.db_path = db_path
         self._connection = sqlite3.connect(db_path)
         self._connection.row_factory = sqlite3.Row

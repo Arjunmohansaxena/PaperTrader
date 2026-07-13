@@ -24,6 +24,4 @@ class Position:
     def unrealized_profit_loss(self,current_price:float):
         return (current_price - self.avg_buy_price) * self.quantity
     
-
-    
     

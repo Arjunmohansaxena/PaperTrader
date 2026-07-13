@@ -1,17 +1,18 @@
+
 from database.db_manager import DatabaseManager
 from models.portfolio import Portfolio
 from models.position import Position
 from models.transaction import Transaction
 
 def  get_user_portfolio(user_id: int) -> Portfolio | None:
-    db_manager = DatabaseManager()  # Initialize the database manager
+    db_manager = DatabaseManager("database\PaperTrader.db")  # Initialize the database manager
     portfolio_row = db_manager.fetch_one(
         "SELECT * FROM portfolios WHERE user_id = ?", (user_id,)
     )
     if portfolio_row:
         portfolio = Portfolio(cash_balance=portfolio_row["cash_balance"])
         positions_rows = db_manager.fetch_all(
-            "SELECT * FROM positions WHERE user_id = ?", (user_id,)
+            "SELECT * FROM holdings WHERE user_id = ?", (user_id,)
         )
         for pos_row in positions_rows:
             position = Position(
@@ -24,7 +25,7 @@ def  get_user_portfolio(user_id: int) -> Portfolio | None:
     return None
 
 def save_user_portfolio(user_id: int, portfolio: Portfolio):
-    db_manager = DatabaseManager()  # Initialize the database manager
+    db_manager = DatabaseManager("database\PaperTrader.db")  # Initialize the database manager
     db_manager.execute(
         "INSERT OR REPLACE INTO holdings (user_id, cash_balance) VALUES (?, ?)",
         (user_id, portfolio.cash_balance),
@@ -36,7 +37,7 @@ def save_user_portfolio(user_id: int, portfolio: Portfolio):
         )
 
 def record_user_transaction(user_id: int, transaction: Transaction):
-    db_manager = DatabaseManager()  # Initialize the database manager
+    db_manager = DatabaseManager("database\PaperTrader.db")  # Initialize the database manager
     db_manager.execute(
         "INSERT INTO transactions (user_id, symbol, side, quantity, price, timestamp) VALUES (?, ?, ?, ?, ?, ?)",
         (user_id, transaction.symbol, transaction.side, transaction.quantity, transaction.price, transaction.timestamp),
@@ -44,7 +45,7 @@ def record_user_transaction(user_id: int, transaction: Transaction):
     save_user_portfolio(user_id, get_user_portfolio(user_id))  # Update the portfolio after recording the transaction
 
 def get_user_transaction_history(user_id: int) -> list[Transaction]:
-    db_manager = DatabaseManager()  # Initialize the database manager
+    db_manager = DatabaseManager("database\PaperTrader.db")  # Initialize the database manager
     transactions_rows = db_manager.fetch_all(
         "SELECT * FROM transactions WHERE user_id = ? ORDER BY timestamp DESC", (user_id,)
     )
