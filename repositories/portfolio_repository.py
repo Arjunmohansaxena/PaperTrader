@@ -4,31 +4,33 @@ from models.portfolio import Portfolio
 from models.position import Position
 from models.transaction import Transaction
 
-def  get_user_portfolio(user_id: int) -> Portfolio | None:
+def get_user_portfolio(user_id: int) -> Portfolio | None:
     db_manager = DatabaseManager("database\PaperTrader.db")  # Initialize the database manager
-    portfolio_row = db_manager.fetch_one(
+    user_row = db_manager.fetch_one(
+        "SELECT balance FROM users WHERE user_id = ?", (user_id,)
+    )
+    if user_row is None:
+        return None
+
+    portfolio = Portfolio(cash_balance=user_row["balance"])
+    positions_rows = db_manager.fetch_all(
         "SELECT * FROM holdings WHERE user_id = ?", (user_id,)
     )
-    if portfolio_row:
-        portfolio = Portfolio(cash_balance=portfolio_row["cash_balance"])
-        positions_rows = db_manager.fetch_all(
-            "SELECT * FROM holdings WHERE user_id = ?", (user_id,)
+    for pos_row in positions_rows:
+        position = Position(
+            symbol=pos_row["symbol"],
+            quantity=pos_row["quantity"],
+            avg_buy_price=pos_row["avg_buy_price"],
         )
-        for pos_row in positions_rows:
-            position = Position(
-                symbol=pos_row["symbol"],
-                quantity=pos_row["quantity"],
-                avg_buy_price=pos_row["avg_buy_price"]
-            )
-            portfolio.positions[position.symbol] = position
-        return portfolio
-    return None
+        portfolio.positions[position.symbol] = position
+
+    return portfolio
 
 def save_user_portfolio(user_id: int, portfolio: Portfolio):
     db_manager = DatabaseManager("database\PaperTrader.db")  # Initialize the database manager
     db_manager.execute(
-        "INSERT OR REPLACE INTO holdings (user_id, cash_balance) VALUES (?, ?)",
-        (user_id, portfolio.cash_balance),
+        "UPDATE users SET balance = ? WHERE user_id = ?",
+        (portfolio.cash_balance, user_id),
     )
     for position in portfolio.positions.values():
         db_manager.execute(
