@@ -7,7 +7,7 @@ from models.transaction import Transaction
 def  get_user_portfolio(user_id: int) -> Portfolio | None:
     db_manager = DatabaseManager("database\PaperTrader.db")  # Initialize the database manager
     portfolio_row = db_manager.fetch_one(
-        "SELECT * FROM portfolios WHERE user_id = ?", (user_id,)
+        "SELECT * FROM holdings WHERE user_id = ?", (user_id,)
     )
     if portfolio_row:
         portfolio = Portfolio(cash_balance=portfolio_row["cash_balance"])
