@@ -1,11 +1,11 @@
-
 import os
-import sqlite3
 
 from database.db_manager import DatabaseManager
 from models.portfolio import Portfolio
 from models.position import Position
 from models.transaction import Transaction
+
+DEFAULT_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "database", "PaperTrader.db")
 
 
 class PortfolioRepository:
@@ -13,7 +13,7 @@ class PortfolioRepository:
         if db_manager is not None:
             self.db_manager = db_manager
         else:
-            self.db_manager = DatabaseManager(os.path.join("database", "PaperTrader.db"), initialize_schema=False)
+            self.db_manager = DatabaseManager(DEFAULT_DB_PATH)
 
     def save(self, portfolio: Portfolio, user_id: int):
         self.db_manager.execute(
@@ -23,6 +23,10 @@ class PortfolioRepository:
         self.db_manager.execute(
             "UPDATE users SET balance = ? WHERE user_id = ?",
             (portfolio.cash_balance, user_id),
+        )
+        self.db_manager.execute(
+            "DELETE FROM holdings WHERE user_id = ?",
+            (user_id,),
         )
         for position in portfolio.positions.values():
             self.db_manager.execute(
