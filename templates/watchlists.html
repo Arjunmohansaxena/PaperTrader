@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Watchlists — PaperTrader{% endblock %}
+{% block content %}
+<div class="dashboard-title-row">
+    <h1>Your Watchlists</h1>
+    <!-- Trigger Modal or Form inline -->
+    <div style="flex-shrink: 0;">
+        <form action="{{ url_for('create_watchlist') }}" method="post" style="display: flex; gap: 0.5rem; flex-direction: row; align-items: center;">
+            <input type="text" name="name" class="form-control" placeholder="New watchlist name..." required style="padding: 0.4rem 0.75rem; font-size: 0.85rem; width: 200px;">
+            <button type="submit" class="btn btn-primary" style="margin: 0; padding: 0.4rem 0.85rem;">Create List</button>
+        </form>
+    </div>
+</div>
+
+{% if watchlists %}
+<div class="watchlists-container">
+    {% for wl in watchlists %}
+    <div class="watchlist-card">
+        <div class="watchlist-header">
+            <span class="watchlist-title">{{ wl.name }}</span>
+            <form action="{{ url_for('delete_watchlist', watchlist_id=wl.watch_list_id) }}" method="post" onsubmit="return confirm('Delete this watchlist?');" style="margin: 0;">
+                <button type="submit" class="btn btn-danger btn-sm" style="padding: 0.15rem 0.4rem; font-size: 0.7rem; border-radius: 4px;">Delete List</button>
+            </form>
+        </div>
+
+        <div class="watchlist-stocks-list">
+            {% if wl.stocks %}
+                {% for stock in wl.stocks %}
+                <div class="watchlist-stock-row">
+                    <div class="wl-stock-left">
+                        <span class="wl-stock-symbol">{{ stock.symbol }}</span>
+                        {% if stock.price > 0 %}
+                        <span class="wl-stock-price">${{ "%.2f"|format(stock.price) }}</span>
+                        {% else %}
+                        <span class="wl-stock-price" style="font-size: 0.75rem; color: var(--text-muted);">price unavailable</span>
+                        {% endif %}
+                    </div>
+                    <div class="wl-stock-actions" style="display: flex; gap: 0.35rem; align-items: center;">
+                        <a href="{{ url_for('buy', symbol=stock.symbol) }}" class="btn btn-secondary btn-sm" style="padding: 0.15rem 0.4rem; font-size: 0.7rem;">Buy</a>
+                        <form action="{{ url_for('remove_watchlist_stock', watchlist_id=wl.watch_list_id) }}" method="post" style="margin: 0; display: inline;">
+                            <input type="hidden" name="symbol" value="{{ stock.symbol }}">
+                            <button type="submit" class="btn btn-danger btn-sm" style="padding: 0.15rem 0.4rem; font-size: 0.7rem; border-radius: 4px; background: transparent; border-color: transparent; color: var(--text-muted); cursor: pointer;" title="Remove Stock">×</button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div style="text-align: center; color: var(--text-muted); font-size: 0.8rem; padding: 1.5rem 0;">
+                    No stocks in this watchlist.
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Add Stock Form -->
+        <form action="{{ url_for('add_watchlist_stock', watchlist_id=wl.watch_list_id) }}" method="post" class="wl-add-form">
+            <input type="text" name="symbol" class="wl-add-input" placeholder="Add symbol or company..." required autocomplete="off" style="text-transform: uppercase;">
+            <button type="submit" class="btn btn-secondary btn-sm" style="padding: 0.35rem 0.6rem;">Add</button>
+        </form>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state-container" style="margin-top: 1rem;">
+    <div class="empty-icon">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
+        </svg>
+    </div>
+    <h3 class="empty-title">No watchlists found</h3>
+    <p class="empty-desc">Create custom watchlists to monitor and trade your favorite stock tickets without owning them first.</p>
+</div>
+{% endif %}
+{% endblock %}

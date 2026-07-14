@@ -7,7 +7,9 @@ from repositories.portfolio_repository import PortfolioRepository
 from repositories.user_repository import UserRepository
 from models.portfolio import Portfolio
 from models.transaction import Transaction
-from services.market_data_provider import get_stock_price
+from services.market_data_provider import get_stock_price, get_stock_symbol
+from repositories.watchlist_repository import WatchlistRepository
+from utils.exceptions import StockNotFoundError
 
 BASE_DIR = os.path.dirname(__file__)
 DB_PATH = os.path.join(BASE_DIR, "database", "PaperTrader.db")
@@ -95,7 +97,16 @@ def show_portfolio(portfolio: Portfolio) -> None:
 
 
 def buy_flow(portfolio: Portfolio, portfolio_repo: PortfolioRepository, user_id: int) -> None:
-    symbol = input("Symbol to buy: ").strip().upper()
+    raw_input_value = input("Symbol or company name: ").strip()
+    symbol = raw_input_value.upper()
+    if " " in raw_input_value or len(raw_input_value) > 5:
+        # looks like a company name, not a ticker — try resolving it
+        try:
+            symbol = get_stock_symbol(raw_input_value)
+            print(f"  Resolved '{raw_input_value}' to {symbol}.")
+        except StockNotFoundError as exc:
+            print(f"  {exc}")
+            return
     try:
         quantity = int(input("Quantity: ").strip())
     except ValueError:
@@ -119,7 +130,16 @@ def buy_flow(portfolio: Portfolio, portfolio_repo: PortfolioRepository, user_id:
 
 
 def sell_flow(portfolio: Portfolio, portfolio_repo: PortfolioRepository, user_id: int) -> None:
-    symbol = input("Symbol to sell: ").strip().upper()
+    raw_input_value = input("Symbol or company name: ").strip()
+    symbol = raw_input_value.upper()
+    if " " in raw_input_value or len(raw_input_value) > 5:
+        # looks like a company name, not a ticker — try resolving it
+        try:
+            symbol = get_stock_symbol(raw_input_value)
+            print(f"  Resolved '{raw_input_value}' to {symbol}.")
+        except StockNotFoundError as exc:
+            print(f"  {exc}")
+            return
     try:
         quantity = int(input("Quantity: ").strip())
     except ValueError:
@@ -153,8 +173,94 @@ def show_history(portfolio_repo: PortfolioRepository, user_id: int) -> None:
         stamp_str = timestamp.strftime("%Y-%m-%d %H:%M:%S") if isinstance(timestamp, datetime) else str(timestamp)[:19]
         print(f"{stamp_str:<20}{txn.side:<6}{txn.symbol:<8}{txn.quantity:>6}{txn.price:>12.2f}{txn.total_amount:>14.2f}")
 
+def watchlists_menu(watchlist_repo: WatchlistRepository, user_id: int) -> None:
+    while True:
+        lists = watchlist_repo.get_by_user_id(user_id)
+        print("\n=== Your Watchlists ===")
+        if not lists:
+            print("No watchlists yet.")
+        for i, wl in enumerate(lists, start=1):
+            print(f"{i}) {wl.name} ({len(wl.stocks)} stocks)")
+        print("0) Back")
+        choice = input("> ").strip()
 
-def main_menu(user, portfolio_repo: PortfolioRepository) -> None:
+        if choice == "0":
+            return
+        try:
+            selected = lists[int(choice) - 1]
+        except (ValueError, IndexError):
+            print("Invalid option.")
+            continue
+
+        watchlist_detail_menu(watchlist_repo, selected)
+
+
+def watchlist_detail_menu(watchlist_repo: WatchlistRepository, watchlist) -> None:
+    while True:
+        print(f"\n=== Watchlist: {watchlist.name} ===")
+        if watchlist.stocks:
+            for symbol in watchlist.stocks:
+                price = get_stock_price(symbol)
+                print(f"- {symbol}, ${price:.2f}")
+        else:
+            print("(empty)")
+        print("1) Add stock")
+        print("2) Remove stock")
+        print("3) Delete this watchlist")
+        print("4) Back")
+        choice = input("> ").strip()
+
+        if choice == "1":
+            raw_input_value = input("Symbol or company name: ").strip()
+            symbol = raw_input_value.upper()
+            if " " in raw_input_value or len(raw_input_value) > 5:
+                # looks like a company name, not a ticker — try resolving it
+                try:
+                    symbol = get_stock_symbol(raw_input_value)
+                    print(f"  Resolved '{raw_input_value}' to {symbol}.")
+                except StockNotFoundError as exc:
+                    print(f"  {exc}")
+                    return
+            if symbol:
+                watchlist_repo.add_stock(watchlist.watch_list_id, symbol)
+                watchlist.add_stock(symbol)
+                print(f"Added {symbol} to {watchlist.name}.")
+        elif choice == "2":
+            raw_input_value = input("Symbol or company name: ").strip()
+            symbol = raw_input_value.upper()
+            if " " in raw_input_value or len(raw_input_value) > 5:
+                # looks like a company name, not a ticker — try resolving it
+                try:
+                    symbol = get_stock_symbol(raw_input_value)
+                    print(f"  Resolved '{raw_input_value}' to {symbol}.")
+                except StockNotFoundError as exc:
+                    print(f"  {exc}")
+                    return
+            watchlist_repo.remove_stock(watchlist.watch_list_id, symbol)
+            watchlist.remove_stock(symbol)
+            print(f"Removed {symbol} from {watchlist.name}.")
+        elif choice == "3":
+            confirm = input(f"Delete watchlist '{watchlist.name}'? (y/n): ").strip().lower()
+            if confirm == "y":
+                watchlist_repo.delete(watchlist.watch_list_id)
+                print("Watchlist deleted.")
+                return
+        elif choice == "4":
+            return
+        else:
+            print("Invalid option.")
+
+
+def create_watchlist_flow(watchlist_repo: WatchlistRepository, user_id: int) -> None:
+    name = input("Watchlist name: ").strip()
+    if not name:
+        print("Name cannot be empty.")
+        return
+    watchlist_repo.create_watchlist(user_id, name)
+    print(f"Watchlist '{name}' created.")
+
+
+def main_menu(user, portfolio_repo: PortfolioRepository, watchlist_repo: WatchlistRepository) -> None:
     while True:
         portfolio = portfolio_repo.get_by_user_id(user.user_id)
         print(f"\n=== {user.username}'s Portfolio ===")
@@ -162,7 +268,9 @@ def main_menu(user, portfolio_repo: PortfolioRepository) -> None:
         print("2) Buy stock")
         print("3) Sell stock")
         print("4) Transaction history")
-        print("5) Log out")
+        print("5) View watchlists")
+        print("6) Create watchlist")
+        print("7) Log out")
         choice = input("> ").strip()
 
         if choice == "1":
@@ -174,6 +282,10 @@ def main_menu(user, portfolio_repo: PortfolioRepository) -> None:
         elif choice == "4":
             show_history(portfolio_repo, user.user_id)
         elif choice == "5":
+            watchlists_menu(watchlist_repo, user.user_id)
+        elif choice == "6":
+            create_watchlist_flow(watchlist_repo, user.user_id)
+        elif choice == "7":
             return
         else:
             print("Invalid option.")
@@ -185,10 +297,11 @@ def main() -> None:
         ensure_schema(db_manager)
         user_repo = UserRepository(db_manager)
         portfolio_repo = PortfolioRepository(db_manager)
+        watchlist_repo = WatchlistRepository(db_manager)
 
         while True:
             user = login_or_register(user_repo)
-            main_menu(user, portfolio_repo)
+            main_menu(user, portfolio_repo, watchlist_repo)
 
 
 if __name__ == "__main__":

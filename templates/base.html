@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}PaperTrader{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="app-wrapper">
+        {% if session.get('user_id') %}
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <div class="logo-circle">PT</div>
+                <span class="logo-text">PaperTrader</span>
+            </div>
+
+            <!-- Workspace account selector -->
+            <div class="workspace-selector" onclick="window.location.href='{{ url_for('dashboard') }}'">
+                <div class="workspace-info">
+                    <div class="workspace-avatar">{{ session.get('username')[0]|upper }}</div>
+                    <span class="workspace-name">{{ session.get('username') }}</span>
+                </div>
+                <span class="workspace-badge">Hobby</span>
+            </div>
+
+            <!-- Nav Links -->
+            <nav class="sidebar-nav">
+                <a href="{{ url_for('dashboard') }}" class="nav-item {{ 'active' if request.endpoint == 'dashboard' }}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="7" height="9"></rect>
+                        <rect x="14" y="3" width="7" height="5"></rect>
+                        <rect x="14" y="12" width="7" height="9"></rect>
+                        <rect x="3" y="16" width="7" height="5"></rect>
+                    </svg>
+                    Overview
+                </a>
+                <a href="{{ url_for('buy') }}" class="nav-item {{ 'active' if request.endpoint == 'buy' }}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                    Buy Stock
+                </a>
+                <a href="{{ url_for('sell') }}" class="nav-item {{ 'active' if request.endpoint == 'sell' }}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                    Sell Stock
+                </a>
+                <a href="{{ url_for('history') }}" class="nav-item {{ 'active' if request.endpoint == 'history' }}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                    Ledger
+                </a>
+                <a href="{{ url_for('watchlists_view') }}" class="nav-item {{ 'active' if request.endpoint == 'watchlists_view' }}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
+                    </svg>
+                    Watchlists
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="footer-user">
+                    <div class="user-details">
+                        <span class="user-name">{{ session.get('username') }}</span>
+                    </div>
+                    <a href="{{ url_for('logout') }}" class="logout-btn">Log out</a>
+                </div>
+            </div>
+        </aside>
+        {% endif %}
+
+        <!-- Main Content Column -->
+        <main class="main-content">
+            {% if session.get('user_id') %}
+            <!-- Top bar -->
+            <header class="top-bar">
+                <div class="top-bar-left">
+                    <div class="breadcrumb-nav">
+                        <span>PaperTrader</span>
+                        <span class="breadcrumb-sep">/</span>
+                        <span class="breadcrumb-active">
+                            {% if request.endpoint == 'dashboard' %}Overview
+                            {% elif request.endpoint == 'buy' %}Buy Stock
+                            {% elif request.endpoint == 'sell' %}Sell Stock
+                            {% elif request.endpoint == 'history' %}Ledger
+                            {% elif request.endpoint == 'watchlists_view' %}Watchlists
+                            {% else %}{{ request.endpoint|capitalize }}
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+
+                <div class="top-bar-right">
+                    <!-- Search Form -->
+                    <form action="{{ url_for('buy') }}" method="get" class="top-search-form">
+                        <svg class="search-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
+                        <input type="text" name="symbol" class="top-search-input" placeholder="Search stock or buy..." autocomplete="off">
+                    </form>
+                    <div class="btn-group">
+                        <a href="{{ url_for('buy') }}" class="btn btn-primary btn-sm">Trade Stock</a>
+                    </div>
+                </div>
+            </header>
+            {% endif %}
+
+            <!-- Alert Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                <div class="flash-container">
+                    {% for category, message in messages %}
+                    <div class="alert alert-{{ 'success' if category == 'success' else 'error' }}">
+                        <span>{{ message }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            {% endwith %}
+
+            <!-- Primary Content -->
+            <div class="content-body">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+</body>
+</html>

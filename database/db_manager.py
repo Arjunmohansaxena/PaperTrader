@@ -1,11 +1,12 @@
 import os
 import sqlite3
 
+DEFAULT_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "database", "PaperTrader.db")
+
 
 class DatabaseManager:
-    def __init__(self, db_path: str):
-        self.db_path = db_path
-        self._connection = sqlite3.connect(db_path)
+    def __init__(self, db_path: str = DEFAULT_DB_PATH):
+        self._connection = sqlite3.connect(db_path, check_same_thread=False)
         self._connection.row_factory = sqlite3.Row
 
     def execute(self, query: str, params: tuple | None = None):

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Buy Stock — PaperTrader{% endblock %}
+{% block content %}
+<div class="form-container">
+    <div class="form-card">
+        <h1>Order Slip: Buy Stock</h1>
+        <p class="form-subtitle">Deploy capital to purchase shares in a publicly listed company.</p>
+        
+        <form method="post">
+            <div class="form-group">
+                <label for="symbol">Ticker Symbol</label>
+                <input type="text" id="symbol" name="symbol" class="form-control mono" value="{{ symbol or request.args.get('symbol') or '' }}" autofocus required autocomplete="off" style="text-transform: uppercase;" placeholder="e.g. AAPL">
+            </div>
+
+            <div class="form-group">
+                <label for="quantity">Quantity</label>
+                <input type="number" id="quantity" name="quantity" class="form-control mono" min="1" step="1" value="{{ quantity or '' }}" required placeholder="Number of shares">
+            </div>
+
+            {% if need_manual_price %}
+            <div class="form-group">
+                <label for="manual_price">Manual Entry Price ($)</label>
+                <input type="number" id="manual_price" name="manual_price" class="form-control mono" min="0.01" step="0.01" autofocus required placeholder="0.00">
+                <small style="color: var(--accent-red); font-size: 0.75rem; margin-top: 0.25rem; display: block;">Live price feed unavailable. Please enter a valuation manually.</small>
+            </div>
+            {% else %}
+            <input type="hidden" name="manual_price" value="">
+            {% endif %}
+
+            <button type="submit" class="btn btn-primary" style="margin-top: 1rem; width: 100%;">Execute Buy Order</button>
+        </form>
+        
+        <div class="form-footer-link">
+            <a href="{{ url_for('dashboard') }}">Cancel and return to Overview</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

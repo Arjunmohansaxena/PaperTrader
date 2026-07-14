@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Log in — PaperTrader{% endblock %}
+{% block content %}
+<div class="form-container" style="margin: 6rem auto;">
+    <div class="form-card">
+        <h1 style="text-align: center; margin-bottom: 0.25rem;">Log in to PaperTrader</h1>
+        <p class="form-subtitle" style="text-align: center;">Enter your credentials to access your mock portfolio.</p>
+        
+        <form method="post">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" class="form-control" value="{{ username or '' }}" autofocus required placeholder="yourusername">
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" class="form-control" required placeholder="••••••••">
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="margin-top: 1.25rem; width: 100%;">Log In</button>
+        </form>
+        {% if session.get('user_id') %}
+        <p class="form-footer-link">
+            Logged in as {{ session.get('username') }} — <a href="{{ url_for('logout') }}" style="color: var(--accent-blue);">Log out</a>.
+        </p>
+        {% endif %}
+        
+        <p class="form-footer-link">
+            No account yet? <a href="{{ url_for('register') }}" style="color: var(--accent-blue);">Create one for free</a>.
+        </p>
+    </div>
+</div>
+{% endblock %}

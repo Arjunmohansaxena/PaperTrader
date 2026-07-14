@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Ledger — PaperTrader{% endblock %}
+{% block content %}
+<div class="dashboard-title-row">
+    <h1>Transaction Ledger</h1>
+    <a href="{{ url_for('buy') }}" class="btn btn-primary">New Trade</a>
+</div>
+
+{% if transactions %}
+<div class="vercel-table-container">
+    <table class="vercel-table">
+        <thead>
+            <tr>
+                <th>Timestamp</th>
+                <th>Type</th>
+                <th>Symbol</th>
+                <th style="text-align: right;">Quantity</th>
+                <th style="text-align: right;">Execution Price</th>
+                <th style="text-align: right;">Total Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for txn in transactions %}
+            <tr>
+                <td class="mono" style="color: var(--text-secondary);">
+                    {{ txn.timestamp|string|truncate(19, True, "") }}
+                </td>
+                <td>
+                    <span class="status-pill {{ 'buy' if txn.side == 'buy' else 'sell' }}">
+                        {{ 'BOUGHT' if txn.side == 'buy' else 'SOLD' }}
+                    </span>
+                </td>
+                <td class="mono" style="font-weight: 600;">{{ txn.symbol }}</td>
+                <td class="mono" style="text-align: right;">{{ txn.quantity }}</td>
+                <td class="mono" style="text-align: right;">${{ "%.2f"|format(txn.price) }}</td>
+                <td class="mono" style="text-align: right; font-weight: 550;">${{ "%.2f"|format(txn.total_amount) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state-container" style="margin-top: 1rem;">
+    <div class="empty-icon">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+    </div>
+    <h3 class="empty-title">No transactions recorded</h3>
+    <p class="empty-desc">Your portfolio has no ledger activity. Transactions will appear here as soon as you execute buy or sell orders.</p>
+    <a href="{{ url_for('buy') }}" class="btn btn-primary">Make Your First Trade</a>
+</div>
+{% endif %}
+{% endblock %}

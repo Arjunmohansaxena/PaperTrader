@@ -1,19 +1,14 @@
-import os
-
 from database.db_manager import DatabaseManager
 from models.portfolio import Portfolio
 from models.position import Position
 from models.transaction import Transaction
-
-DEFAULT_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "database", "PaperTrader.db")
-
 
 class PortfolioRepository:
     def __init__(self, db_manager: DatabaseManager | None = None):
         if db_manager is not None:
             self.db_manager = db_manager
         else:
-            self.db_manager = DatabaseManager(DEFAULT_DB_PATH)
+            self.db_manager = DatabaseManager()
 
     def save(self, portfolio: Portfolio, user_id: int):
         self.db_manager.execute(

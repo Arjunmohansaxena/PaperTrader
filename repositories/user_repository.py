@@ -1,17 +1,12 @@
-import os
-
 from database.db_manager import DatabaseManager
 from models.user import User
-
-DEFAULT_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "database", "PaperTrader.db")
-
 
 class UserRepository:
     def __init__(self, db_manager: DatabaseManager | None = None):
         if db_manager is not None:
             self.db_manager = db_manager
         else:
-            self.db_manager = DatabaseManager(DEFAULT_DB_PATH)
+            self.db_manager = DatabaseManager()
 
     def create_user(self, username: str, email: str, password: str) -> User:
         if self.get_by_username(username) is not None:
