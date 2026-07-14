@@ -115,4 +115,4 @@ Three tables: `users`, `holdings`, and `transactions`. See
 
 ## License
 
-Add a license of your choice (e.g. MIT) if you plan to make this repository public.
+MIT — see [LICENSE](LICENSE) for details.
