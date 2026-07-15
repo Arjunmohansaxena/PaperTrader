@@ -3,6 +3,7 @@ import os
 from datetime import datetime
 from functools import wraps
 
+from flask_socketio import SocketIO, emit
 from flask import jsonify 
 from flask import Flask, flash, redirect, render_template, request, session, url_for
 
@@ -12,6 +13,7 @@ from models.transaction import Transaction
 from repositories.portfolio_repository import PortfolioRepository
 from repositories.user_repository import UserRepository
 from repositories.watchlist_repository import WatchlistRepository
+from services.finnhub_stream import FinnhubPriceStream
 from services.market_data_provider import get_stock_price, get_stock_symbol, search_stock
 from utils.exceptions import StockNotFoundError
 
@@ -21,6 +23,7 @@ SCHEMA_PATH = os.path.join(BASE_DIR, "database", "schema.sql")
 STARTING_BALANCE = 100000.00
 
 app = Flask(__name__)
+socketio = SocketIO(app, cors_allowed_origins="*")
 app.secret_key = os.environ.get("PAPERTRADER_SECRET_KEY", "dev-secret-key-change-me")
 
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
@@ -123,7 +126,6 @@ def login():
 def logout():
     session.clear()
     return redirect(url_for("login"))
-
 
 @app.route("/dashboard")
 @login_required
@@ -373,5 +375,56 @@ def delete_watchlist(watchlist_id):
     return redirect(url_for("watchlists_view"))
 
 
+REST_BOOTSTRAP_INTERVAL_SECONDS = 60
+
+
+def _collect_tracked_symbols():
+    symbols = set()
+    for row in db_manager.fetch_all("SELECT DISTINCT stock_name FROM holdings"):
+        symbols.add(row[0])
+    for row in db_manager.fetch_all("SELECT DISTINCT stock_symbol FROM watchlist_stocks"):
+        symbols.add(row[0])
+    return symbols
+
+
+_last_prices = {}
+
+
+def _emit_price_updates(updates: dict):
+    global _last_prices
+    if not updates:
+        return
+    _last_prices.update(updates)
+    socketio.emit("price_update", updates)
+
+
+@socketio.on("connect")
+def handle_connect():
+    if _last_prices:
+        emit("price_update", _last_prices)
+
+
+def bootstrap_prices():
+    """REST snapshot for initial load, after-hours, and when WebSocket is quiet."""
+    symbols = _collect_tracked_symbols()
+    if not symbols:
+        return
+    prices = {}
+    for symbol in symbols:
+        try:
+            prices[symbol] = float(get_stock_price(symbol))
+        except Exception:
+            continue
+    _emit_price_updates(prices)
+
+
+def price_bootstrap_loop():
+    while True:
+        bootstrap_prices()
+        socketio.sleep(REST_BOOTSTRAP_INTERVAL_SECONDS)
+
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    socketio.start_background_task(price_bootstrap_loop)
+    FinnhubPriceStream(_collect_tracked_symbols, _emit_price_updates).start()
+    socketio.run(app, debug=True, allow_unsafe_werkzeug=True)
