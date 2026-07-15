@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Dashboard — PaperTrader{% endblock %}
+
 {% block content %}
 
 <div class="dashboard-title-row">
@@ -20,7 +21,7 @@
                 <div class="usage-row">
                     <span class="detail-label">Portfolio Value</span>
                 </div>
-                <div class="usage-metric">${{ "%.2f"|format(total_value) }}</div>
+                <div id="portfolio-value" class="usage-metric">${{ "%.2f"|format(total_value) }}</div>
                 
                 <!-- Progress gauge: cash as portion of total -->
                 {% set cash_percent = (portfolio.cash_balance / total_value * 100)|int if total_value > 0 else 0 %}
@@ -35,7 +36,7 @@
                     </div>
                     <div class="detail-item">
                         <span class="detail-label">Holdings Value</span>
-                        <span class="detail-value">${{ "%.2f"|format(total_value - portfolio.cash_balance) }}</span>
+                        <span id="holdings-value" class="detail-value">${{ "%.2f"|format(total_value - portfolio.cash_balance) }}</span>
                     </div>
                     <div class="detail-item">
                         {% set total_pnl = 0.0 %}
@@ -43,7 +44,7 @@
                             {% set total_pnl = total_pnl + row.pnl %}
                         {% endfor %}
                         <span class="detail-label">Total Unrealized P/L</span>
-                        <span class="detail-value {{ 'gain' if total_pnl >= 0 else 'loss' }}">
+                        <span id="total-pnl" class="detail-value {{ 'gain' if total_pnl >= 0 else 'loss' }}">
                             {{ '+' if total_pnl >= 0 else '' }}{{ "%.2f"|format(total_pnl) }}
                         </span>
                     </div>
@@ -117,13 +118,14 @@
                     </div>
                     <div class="holding-price-block">
                         <span class="price-title">Current Price</span>
-                        <span class="price-val">${{ "%.2f"|format(row.current_price) }}</span>
+                        <!-- FIX 1: Added the target ID to the current price text element -->
+                        <span id="price-{{ row.symbol }}" class="price-val">${{ "%.2f"|format(row.current_price) }}</span>
                     </div>
                 </div>
 
                 <div class="holding-right">
-                    <span class="holding-value">${{ "%.2f"|format(row.quantity * row.current_price) }}</span>
-                    <span class="holding-pnl {{ 'gain' if row.pnl >= 0 else 'loss' }}">
+                    <span id="value-{{ row.symbol }}" class="holding-value">${{ "%.2f"|format(row.quantity * row.current_price) }}</span>
+                    <span id="pnl-{{ row.symbol }}" class="holding-pnl {{ 'gain' if row.pnl >= 0 else 'loss' }}">
                         {{ '+' if row.pnl >= 0 else '' }}{{ "%.2f"|format(row.pnl) }}
                     </span>
                     <div class="btn-group" style="margin-top: 0.5rem;">
@@ -235,5 +237,84 @@
         </div>
     </div>
 </div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.js"></script>
+{% if rows %}
+<script>
+    const holdings = {
+        cashBalance: {{ portfolio.cash_balance }},
+        positions: {
+            {% for row in rows %}
+            "{{ row.symbol }}": { quantity: {{ row.quantity }}, avgPrice: {{ row.avg_price }} }{% if not loop.last %},{% endif %}
+            {% endfor %}
+        }
+    };
+
+    let lastPrices = {
+        {% for row in rows %}
+        "{{ row.symbol }}": {{ row.current_price }}{% if not loop.last %},{% endif %}
+        {% endfor %}
+    };
+
+    const socket = io();
+
+    function formatMoney(amount) {
+        return '$' + amount.toFixed(2);
+    }
+
+    function formatPnl(amount) {
+        return (amount >= 0 ? '+' : '') + amount.toFixed(2);
+    }
+
+    function setPnlClass(el, amount) {
+        el.classList.remove('gain', 'loss');
+        el.classList.add(amount >= 0 ? 'gain' : 'loss');
+    }
+
+    function recalculatePortfolio(prices) {
+        let totalPnl = 0;
+        let holdingsValue = 0;
+
+        for (const [symbol, pos] of Object.entries(holdings.positions)) {
+            const price = prices[symbol];
+            if (price === undefined) continue;
+
+            const pnl = (price - pos.avgPrice) * pos.quantity;
+            const positionValue = price * pos.quantity;
+            totalPnl += pnl;
+            holdingsValue += positionValue;
+
+            const priceEl = document.getElementById(`price-${symbol}`);
+            if (priceEl) priceEl.innerText = formatMoney(price);
+
+            const pnlEl = document.getElementById(`pnl-${symbol}`);
+            if (pnlEl) {
+                pnlEl.innerText = formatPnl(pnl);
+                setPnlClass(pnlEl, pnl);
+            }
+
+            const valueEl = document.getElementById(`value-${symbol}`);
+            if (valueEl) valueEl.innerText = formatMoney(positionValue);
+        }
+
+        const totalPnlEl = document.getElementById('total-pnl');
+        if (totalPnlEl) {
+            totalPnlEl.innerText = formatPnl(totalPnl);
+            setPnlClass(totalPnlEl, totalPnl);
+        }
+
+        const holdingsValueEl = document.getElementById('holdings-value');
+        if (holdingsValueEl) holdingsValueEl.innerText = formatMoney(holdingsValue);
+
+        const portfolioValueEl = document.getElementById('portfolio-value');
+        if (portfolioValueEl) portfolioValueEl.innerText = formatMoney(holdings.cashBalance + holdingsValue);
+    }
+
+    socket.on('price_update', function(prices) {
+        Object.assign(lastPrices, prices);
+        recalculatePortfolio(lastPrices);
+    });
+</script>
+{% endif %}
 
 {% endblock %}
