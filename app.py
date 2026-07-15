@@ -14,7 +14,13 @@ from repositories.portfolio_repository import PortfolioRepository
 from repositories.user_repository import UserRepository
 from repositories.watchlist_repository import WatchlistRepository
 from services.finnhub_stream import FinnhubPriceStream
-from services.market_data_provider import get_stock_price, get_stock_symbol, search_stock
+from services.market_data_provider import (
+    get_company_news,
+    get_market_news,
+    get_stock_price,
+    get_stock_symbol,
+    search_stock,
+)
 from utils.exceptions import StockNotFoundError
 
 BASE_DIR = os.path.dirname(__file__)
@@ -160,7 +166,13 @@ def dashboard():
     # Get watchlists and recent transaction history
     watchlists = watchlist_repo.get_by_user_id(user.user_id)
     transactions = portfolio_repo.get_transaction_history(user.user_id)[:3]
-    
+
+    # Small news preview for the dashboard widget
+    try:
+        news_preview = get_market_news(limit=4)
+    except Exception:
+        news_preview = []
+
     return render_template(
         "dashboard.html",
         user=user,
@@ -169,6 +181,7 @@ def dashboard():
         total_value=total_value,
         watchlists=watchlists,
         transactions=transactions,
+        news_preview=news_preview,
     )
 
 
@@ -373,6 +386,24 @@ def delete_watchlist(watchlist_id):
     watchlist_repo.delete(watchlist_id)
     flash(f"Deleted watchlist '{wl.name}'.", "success")
     return redirect(url_for("watchlists_view"))
+
+
+@app.route("/news")
+@login_required
+def news():
+    symbol = request.args.get("symbol", "").strip().upper()
+    articles = []
+    error = None
+
+    try:
+        if symbol:
+            articles = get_company_news(symbol)
+        else:
+            articles = get_market_news()
+    except Exception as exc:
+        error = str(exc)
+
+    return render_template("news.html", articles=articles, symbol=symbol, error=error)
 
 
 REST_BOOTSTRAP_INTERVAL_SECONDS = 60

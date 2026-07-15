@@ -88,6 +88,26 @@
             </div>
             {% endif %}
         </div>
+
+        <!-- Latest News Widget -->
+        <div class="card">
+            <h3 class="card-title">Latest News</h3>
+            {% if news_preview %}
+            <div class="mini-news-list">
+                {% for article in news_preview %}
+                <a href="{{ article.url }}" target="_blank" rel="noopener noreferrer" class="mini-news-row">
+                    <span class="mini-news-headline">{{ article.headline }}</span>
+                    <span class="mini-news-source">{{ article.source }}</span>
+                </a>
+                {% endfor %}
+            </div>
+            <a href="{{ url_for('news') }}" class="btn btn-secondary btn-sm" style="width: 100%; text-align: center; margin-top: 0.75rem;">View All News</a>
+            {% else %}
+            <div class="alert-card-text" style="text-align: center; color: var(--text-muted); font-size: 0.8rem; padding: 1rem 0;">
+                No news available right now.
+            </div>
+            {% endif %}
+        </div>
     </div>
 
     <!-- Right Column (Holdings & Projects) -->

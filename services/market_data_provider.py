@@ -2,6 +2,7 @@ import difflib
 import json
 import os
 import time
+from datetime import datetime, timedelta
 
 import requests
 from dotenv import load_dotenv
@@ -140,3 +141,81 @@ def search_stock(query: str, limit: int = 8) -> list[dict]:
                 seen.add(item[1])
 
     return results[:limit]
+
+
+def _normalize_article(raw: dict) -> dict:
+    """Converts a raw Finnhub news payload into the shape templates expect."""
+    timestamp = raw.get("datetime") or 0
+    try:
+        published = datetime.fromtimestamp(int(timestamp)) if timestamp else None
+    except (ValueError, OSError):
+        published = None
+
+    return {
+        "id": raw.get("id"),
+        "headline": raw.get("headline") or "Untitled",
+        "summary": raw.get("summary") or "",
+        "source": raw.get("source") or "Unknown source",
+        "url": raw.get("url") or "",
+        "image": raw.get("image") or "",
+        "related": raw.get("related") or "",
+        "category": raw.get("category") or "",
+        "published": published,
+    }
+
+
+def get_market_news(category: str = "general", limit: int = 30) -> list[dict]:
+    """Returns the latest general market news headlines from Finnhub."""
+    if not FINNHUB_API_KEY:
+        raise StockNotFoundError("FINNHUB_API_KEY is not set; cannot fetch market news.")
+
+    url = "https://finnhub.io/api/v1/news"
+    params = {"category": category, "token": FINNHUB_API_KEY}
+
+    try:
+        response = requests.get(url, params=params, timeout=5)
+        response.raise_for_status()
+        data = response.json()
+    except requests.RequestException as e:
+        raise StockNotFoundError(f"Could not reach news service: {e}")
+
+    if not isinstance(data, list):
+        raise StockNotFoundError("Unexpected response from news service.")
+
+    articles = [_normalize_article(item) for item in data]
+    articles.sort(key=lambda a: a["published"] or datetime.min, reverse=True)
+    return articles[:limit]
+
+
+def get_company_news(symbol: str, days: int = 14, limit: int = 20) -> list[dict]:
+    """Returns recent news for a specific stock symbol from Finnhub."""
+    if not FINNHUB_API_KEY:
+        raise StockNotFoundError("FINNHUB_API_KEY is not set; cannot fetch company news.")
+
+    today = datetime.now().date()
+    start = today - timedelta(days=days)
+
+    url = "https://finnhub.io/api/v1/company-news"
+    params = {
+        "symbol": symbol,
+        "from": start.isoformat(),
+        "to": today.isoformat(),
+        "token": FINNHUB_API_KEY,
+    }
+
+    try:
+        response = requests.get(url, params=params, timeout=5)
+        response.raise_for_status()
+        data = response.json()
+    except requests.RequestException as e:
+        raise StockNotFoundError(f"Could not reach news service for {symbol}: {e}")
+
+    if not isinstance(data, list):
+        raise StockNotFoundError(f"Unexpected response from news service for {symbol}.")
+
+    if not data:
+        raise StockNotFoundError(f"No recent news found for {symbol}.")
+
+    articles = [_normalize_article(item) for item in data]
+    articles.sort(key=lambda a: a["published"] or datetime.min, reverse=True)
+    return articles[:limit]
