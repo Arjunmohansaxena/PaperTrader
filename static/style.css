@@ -1106,3 +1106,48 @@ a:hover {
         padding: 1rem;
     }
 }
+
+
+/* Stock search-as-you-type dropdown */
+.search-box {
+    position: relative;
+}
+
+.suggestions {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border-primary);
+    border-radius: 8px;
+    max-height: 260px;
+    overflow-y: auto;
+    z-index: 20;
+}
+
+.suggestion {
+    padding: 0.6rem 0.75rem;
+    cursor: pointer;
+    display: flex;
+    align-items: baseline;
+    gap: 0.55rem;
+    font-size: 0.85rem;
+}
+
+.suggestion strong {
+    font-family: var(--font-mono);
+    color: var(--text-primary);
+    flex-shrink: 0;
+}
+
+.suggestion span {
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.suggestion:hover {
+    background: var(--bg-card-hover);
+}

@@ -9,8 +9,10 @@
         <form method="post">
             <div class="form-group">
                 <label for="symbol">Ticker Symbol</label>
-                <input type="text" id="symbol" name="symbol" class="form-control mono" value="{{ symbol or request.args.get('symbol') or '' }}" autofocus required autocomplete="off" style="text-transform: uppercase;" placeholder="e.g. AAPL">
-            </div>
+                <div class="search-box">
+                    <input type="text" id="symbol" name="symbol" class="form-control mono symbol-search" value="{{ symbol or request.args.get('symbol') or '' }}" autofocus required autocomplete="off" style="text-transform: uppercase;" placeholder="Ticker or company name">
+                    <div class="suggestions"></div>
+                </div>
 
             <div class="form-group">
                 <label for="quantity">Quantity</label>
@@ -35,4 +37,5 @@
         </div>
     </div>
 </div>
+<script src="{{ url_for('static', filename='search.js') }}"></script>
 {% endblock %}

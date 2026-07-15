@@ -100,3 +100,43 @@ def get_stock_symbol(company_name: str) -> str:
                 return item[1]
 
     raise StockNotFoundError(f"No stock symbol found for '{company_name}'.")
+
+def search_stock(query: str, limit: int = 8) -> list[dict]:
+    """Returns up to `limit` {"symbol": ..., "description": ...} matches for a
+    partial company name or ticker, ranked: exact match, then substring match
+    (on name or ticker), then typo-tolerant fuzzy match. Used for the live
+    search-as-you-type dropdown."""
+    query = query.strip().lower()
+    if not query:
+        return []
+
+    index = _load_ticker_index()
+    seen: set[str] = set()
+    results: list[dict] = []
+
+    for name_lower, ticker, display_name in index:
+        if name_lower == query and ticker not in seen:
+            results.append({"symbol": ticker, "description": display_name})
+            seen.add(ticker)
+
+    scored = []
+    for name_lower, ticker, display_name in index:
+        if ticker in seen:
+            continue
+        if query in name_lower or query in ticker.lower():
+            scored.append((len(name_lower), {"symbol": ticker, "description": display_name}))
+            seen.add(ticker)
+    scored.sort(key=lambda item: item[0])
+    results.extend(item[1] for item in scored)
+
+    if len(results) < limit:
+        first_words = [item[0].split()[0].rstrip(",.") for item in index]
+        close_words = set(difflib.get_close_matches(query, first_words, n=limit, cutoff=0.6))
+        for item, first_word in zip(index, first_words):
+            if item[1] in seen:
+                continue
+            if first_word in close_words:
+                results.append({"symbol": item[1], "description": item[2]})
+                seen.add(item[1])
+
+    return results[:limit]

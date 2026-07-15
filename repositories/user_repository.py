@@ -19,11 +19,17 @@ class UserRepository:
         new_user.user_id = cursor.lastrowid
         return new_user
 
-    def authenticate(self, username: str, password: str) -> User | None:
-        row = self.db_manager.fetch_one(
-            "SELECT user_id, username, email, password_hash FROM users WHERE username = ?",
-            (username,),
-        )
+    def authenticate(self, user_credentials: str, password: str) -> User | None:
+        if "@" in user_credentials:
+            row = self.db_manager.fetch_one(
+                "SELECT user_id, username, email, password_hash FROM users WHERE email = ?",
+                (user_credentials,),
+            )
+        else:
+            row = self.db_manager.fetch_one(
+                "SELECT user_id, username, email, password_hash FROM users WHERE username = ?",
+                (user_credentials,),
+            )
         if row is None:
             return None
         user = User(username=row[1], email=row[2], password="", user_id=row[0])

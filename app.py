@@ -3,6 +3,7 @@ import os
 from datetime import datetime
 from functools import wraps
 
+from flask import jsonify 
 from flask import Flask, flash, redirect, render_template, request, session, url_for
 
 from database.db_manager import DatabaseManager
@@ -11,7 +12,7 @@ from models.transaction import Transaction
 from repositories.portfolio_repository import PortfolioRepository
 from repositories.user_repository import UserRepository
 from repositories.watchlist_repository import WatchlistRepository
-from services.market_data_provider import get_stock_price, get_stock_symbol
+from services.market_data_provider import get_stock_price, get_stock_symbol, search_stock
 from utils.exceptions import StockNotFoundError
 
 BASE_DIR = os.path.dirname(__file__)
@@ -98,16 +99,22 @@ def register():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        username = request.form.get("username", "").strip()
+        user_credentials = request.form.get("user_credentials", "").strip()
         password = request.form.get("password", "")
-        user = user_repo.authenticate(username, password)
+
+        user = user_repo.authenticate(user_credentials, password)
+
         if user:
             session["user_id"] = user.user_id
             session["username"] = user.username
             flash(f"Welcome back, {user.username}.", "success")
             return redirect(url_for("dashboard"))
+
         flash("Invalid username or password.", "error")
-        return render_template("login.html", username=username)
+        return render_template(
+            "login.html",
+            user_credentials=user_credentials
+        )
 
     return render_template("login.html")
 
@@ -245,6 +252,18 @@ def history():
     user = current_user()
     transactions = portfolio_repo.get_transaction_history(user.user_id)
     return render_template("history.html", transactions=transactions)
+
+@app.route("/api/search")
+@login_required
+def api_search():
+    query = request.args.get("q", "").strip()
+    if not query:
+        return jsonify([])
+    try:
+        results = search_stock(query)
+    except Exception:
+        results = []
+    return jsonify(results)
 
 
 @app.route("/watchlists")

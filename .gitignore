@@ -16,3 +16,5 @@ build/
 .idea/
 .vscode/
 .env
+database/*.db
+data/company_tickers.json

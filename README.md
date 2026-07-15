@@ -1,118 +1,275 @@
-# PaperTrader
+# 📈 PaperTrader
 
-A simple command-line paper trading app. Register a user, get a starting cash
-balance, and buy/sell stocks against live or manually-entered prices — all
-backed by a local SQLite database.
+> A full-stack paper trading platform built with **Python**, **Flask**, and **SQLite** that allows users to simulate stock trading using real-time market prices without risking real money.
 
-## Features
+![Python](https://img.shields.io/badge/Python-3.12-blue)
+![Flask](https://img.shields.io/badge/Flask-3.x-black)
+![SQLite](https://img.shields.io/badge/SQLite-Database-blue)
+![License](https://img.shields.io/badge/License-MIT-green)
 
-- User registration and login (passwords are hashed, never stored in plain text)
-- Buy and sell stocks against a virtual cash balance
-- Live price lookups via [yfinance](https://pypi.org/project/yfinance/), with
-  manual price entry as a fallback if a live price can't be fetched
-- Persistent portfolio and transaction history (SQLite)
-- Unit tests covering the data models and repository layer
+---
 
-## Requirements
+# ✨ Features
 
-- Python 3.11+
-- (Optional) `yfinance`, for live stock prices — see [Installation](#installation)
+- 🔐 Secure User Authentication
+- 📈 Buy & Sell Stocks
+- 💰 Virtual Portfolio Management
+- 📊 Real-Time Portfolio Valuation
+- ⭐ Custom Watchlists
+- 🔍 Autocomplete Stock Search
+- 📜 Transaction History
+- ⚡ Live Stock Prices (Finnhub API)
+- 🏛 SEC Company Database Integration
+- 💾 SQLite Database
 
-## Installation
+---
+
+# 📸 Application Screenshots
+
+## 🔑 Login
+
+![Login](docs/screenshots/login.png)
+
+Secure login with password hashing and session-based authentication.
+
+---
+
+## 📊 Dashboard
+
+![Dashboard](docs/screenshots/dashboard.png)
+
+The dashboard provides a complete overview of the portfolio including:
+
+- Portfolio Value
+- Cash Balance
+- Holdings Value
+- Unrealized Profit/Loss
+- Current Holdings
+- Quick Buy & Sell
+- Popular Stocks
+
+---
+
+## ⭐ Watchlists
+
+![Watchlists](docs/screenshots/watchlists.png)
+
+Create and manage multiple watchlists with quick access to market prices.
+
+Features:
+
+- Multiple Watchlists
+- Add / Remove Stocks
+- Live Search
+- Quick Buy
+
+---
+
+## 📜 Transaction History
+
+![Transactions](docs/screenshots/transactions.png)
+
+A complete ledger of all executed paper trades including:
+
+- Buy Orders
+- Sell Orders
+- Price
+- Quantity
+- Timestamp
+
+---
+
+# 🏗️ System Architecture
+
+![Architecture](docs/architecture.png)
+
+The application follows a layered architecture.
+
+- **Presentation Layer** – Flask routes and HTML templates
+- **Repository Layer** – Handles business logic and database operations
+- **Database Layer** – SQLite with normalized schema
+- **External Services**
+  - Finnhub API (Live Market Prices)
+  - SEC Company Database (Company Symbol Lookup)
+
+---
+
+# 📘 Conceptual Class Diagram
+
+![Class Diagram](docs/class_diagram.png)
+
+The class diagram illustrates the relationships between the core domain models including:
+
+- User
+- Portfolio
+- Position
+- Transaction
+- WatchList
+- Trading Engine
+- Market Data Provider
+
+---
+
+# 🗄️ Entity Relationship Diagram
+
+![ER Diagram](docs/er_diagram.png)
+
+Database Tables:
+
+- Users
+- Holdings
+- Transactions
+- Watchlists
+- Watchlist Stocks
+
+---
+
+# 🔄 Buy Stock Workflow
+
+![Sequence Diagram](docs/buy_sequence.png)
+
+Sequence Overview:
+
+1. User enters company name and quantity.
+2. Application retrieves the stock symbol from the SEC Company Database.
+3. Live stock price is fetched from Finnhub.
+4. User balance is validated.
+5. Holdings and transactions are updated.
+6. Portfolio summary is refreshed.
+
+---
+
+# 🛠 Tech Stack
+
+| Category | Technology |
+|-----------|------------|
+| Backend | Python |
+| Framework | Flask |
+| Database | SQLite |
+| Authentication | Werkzeug |
+| Market Data | Finnhub API |
+| Company Search | SEC Company Database |
+| Frontend | HTML, CSS, JavaScript |
+| Version Control | Git & GitHub |
+
+---
+
+# 📂 Project Structure
+
+```text
+PaperTrader/
+│
+├── app.py
+├── schema.sql
+├── requirements.txt
+├── README.md
+│
+├── models/
+├── repositories/
+├── database/
+├── routes/
+├── templates/
+├── static/
+├── utils/
+├── data/
+└── docs/
+    ├── architecture.png
+    ├── class_diagram.png
+    ├── er_diagram.png
+    ├── buy_sequence.png
+    └── screenshots/
+        ├── login.png
+        ├── dashboard.png
+        ├── watchlists.png
+        └── transactions.png
+```
+
+---
+
+# ⚙️ Installation
+
+## Clone the repository
 
 ```bash
-git clone https://github.com/Arjunmohansaxena/PaperTrader.git
+git clone https://github.com/<your-username>/PaperTrader.git
 cd PaperTrader
-python -m venv .venv
-# Windows
-.venv\Scripts\activate
-# macOS/Linux
-source .venv/bin/activate
+```
 
+## Create a Virtual Environment
+
+### Windows
+
+```bash
+python -m venv .venv
+.venv\Scripts\activate
+```
+
+### Linux / macOS
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+## Install Dependencies
+
+```bash
 pip install -r requirements.txt
 ```
 
-`yfinance` is optional. If it's not installed (or a live lookup fails), the
-app will prompt you to enter a stock price manually instead of crashing.
+## Configure Environment Variables
 
-## Running the app
+Create a `.env` file in the project root.
+
+```env
+FINNHUB_API_KEY=YOUR_API_KEY
+SEC_CONTACT_EMAIL=your_email@example.com
+SECRET_KEY=your_secret_key
+```
+
+## Initialize the Database
 
 ```bash
-python main.py
+python init_db.py
 ```
 
-You'll be dropped into a menu:
-
-```
-=== PaperTrader ===
-1) Log in
-2) Register
-3) Quit
-```
-
-Register a new account to get a starting cash balance of $100,000, then log
-in to reach the trading menu:
-
-```
-=== <username>'s Portfolio ===
-1) View portfolio
-2) Buy stock
-3) Sell stock
-4) Transaction history
-5) Log out
-```
-
-The database file is created automatically at `database/PaperTrader.db` on
-first run — no manual setup required.
-
-## Running the tests
+## Run the Application
 
 ```bash
-python -m unittest discover -s tests -v
+python app.py
 ```
 
-## Project structure
+Open your browser and visit:
 
 ```
-PaperTrader/
-├── main.py                          # CLI entry point
-├── database/
-│   ├── db_manager.py                 # Thin SQLite wrapper (execute/fetch/executescript)
-│   └── schema.sql                    # Table definitions (users, holdings, transactions)
-├── models/
-│   ├── user.py                       # User + password hashing/verification
-│   ├── portfolio.py                  # Cash balance + open positions, buy/sell logic
-│   ├── position.py                   # A single held stock position
-│   └── transaction.py                # A single buy/sell record
-├── repositories/
-│   ├── user_repository.py            # User persistence (create, authenticate, look up)
-│   └── portfolio_repository.py       # Portfolio + transaction persistence
-├── services/
-│   └── market_data_provider.py       # Live price lookups via yfinance
-├── utils/
-│   └── exceptions.py                 # Custom exception types (not yet wired into the app)
-├── tests/                            # Unit tests
-└── docs/                             # ER diagram, design notes
+http://127.0.0.1:5000
 ```
 
-## Database schema
+---
 
-Three tables: `users`, `holdings`, and `transactions`. See
-`docs/PaperTrader_ER_diagram.png` for the full entity-relationship diagram.
+# 🚀 Future Improvements
 
-- `users` — one row per account; holds cash `balance`
-- `holdings` — one row per stock a user currently owns (`stock_name`, `quantity`, `avg_buy_price`)
-- `transactions` — a full log of every buy/sell, independent of current holdings
+- Email Verification
+- Password Reset
+- Limit & Stop Orders
+- Portfolio Analytics
+- Candlestick Charts
+- Stock News Integration
+- REST API
+- Docker Support
+- PostgreSQL Migration
+- Cloud Deployment (AWS / Azure)
 
-## Known limitations / roadmap
+---
 
-- `utils/exceptions.py` defines custom exceptions (e.g. `InsufficientFundsError`)
-  that aren't wired into the app yet — errors currently surface as plain `ValueError`.
-- No password strength requirements or email validation on registration yet.
-- Live prices depend on Yahoo Finance's public data via `yfinance`, which can
-  occasionally return no data for a valid ticker; manual entry is the fallback.
-- Single-user CLI only — no web UI yet.
+# 📄 License
 
-## License
+This project is intended for educational purposes only and does **not** execute real financial trades.
 
-MIT — see [LICENSE](LICENSE) for details.
+---
+
+# 👨‍💻 Author
+
+**Arjun Mohan Saxena**
+
+B.Tech, Indian Institute of Technology Mandi
