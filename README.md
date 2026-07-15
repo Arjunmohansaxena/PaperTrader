@@ -1,6 +1,6 @@
-# 📈 PaperTrader
+# PaperTrader
 
-> A full-stack paper trading platform built with **Python**, **Flask**, and **SQLite** that allows users to simulate stock trading using real-time market prices without risking real money.
+A full-stack paper trading platform built with **Python**, **Flask**, and **SQLite** that enables users to simulate stock trading using live market data without risking real capital.
 
 ![Python](https://img.shields.io/badge/Python-3.12-blue)
 ![Flask](https://img.shields.io/badge/Flask-3.x-black)
@@ -9,96 +9,102 @@
 
 ---
 
-# ✨ Features
+## Overview
 
-- 🔐 Secure User Authentication
-- 📈 Buy & Sell Stocks
-- 💰 Virtual Portfolio Management
-- 📊 Real-Time Portfolio Valuation
-- ⭐ Custom Watchlists
-- 🔍 Autocomplete Stock Search
-- 📜 Transaction History
-- ⚡ Live Stock Prices (Finnhub API)
-- 🏛 SEC Company Database Integration
-- 💾 SQLite Database
+PaperTrader is a virtual stock trading application designed to replicate the workflow of a real brokerage platform. Users can register, manage a virtual portfolio, execute simulated trades using live market prices, maintain watchlists, and review their transaction history.
 
 ---
 
-# 📸 Application Screenshots
+## Features
 
-## 🔑 Login
+- User authentication with secure password hashing
+- Paper trading using virtual funds
+- Live stock prices via Finnhub API
+- Company symbol lookup using the SEC Company Ticker Database
+- Portfolio management and valuation
+- Buy and sell stock simulation
+- Transaction history
+- Custom watchlists
+- Autocomplete stock search
+- SQLite database persistence
+
+---
+
+## Application Screenshots
+
+### Login
 
 ![Login](docs/screenshots/login.png)
 
-Secure login with password hashing and session-based authentication.
+Secure user authentication with session management.
 
 ---
 
-## 📊 Dashboard
+### Dashboard
 
 ![Dashboard](docs/screenshots/dashboard.png)
 
-The dashboard provides a complete overview of the portfolio including:
+The dashboard provides:
 
-- Portfolio Value
-- Cash Balance
-- Holdings Value
-- Unrealized Profit/Loss
-- Current Holdings
-- Quick Buy & Sell
-- Popular Stocks
+- Portfolio value
+- Cash balance
+- Holdings value
+- Unrealized profit and loss
+- Current holdings
+- Quick trading interface
+- Popular stocks
 
 ---
 
-## ⭐ Watchlists
+### Watchlists
 
 ![Watchlists](docs/screenshots/watchlist.png)
 
-Create and manage multiple watchlists with quick access to market prices.
+Users can organize stocks into custom watchlists and access market data with a single click.
 
-Features:
+Features include:
 
-- Multiple Watchlists
-- Add / Remove Stocks
-- Live Search
-- Quick Buy
+- Multiple watchlists
+- Add and remove stocks
+- Stock search
+- Quick buy actions
 
 ---
 
-## 📜 Transaction History
+### Transaction History
 
 ![Transactions](docs/screenshots/transaction.png)
 
-A complete ledger of all executed paper trades including:
+Every executed trade is recorded with:
 
-- Buy Orders
-- Sell Orders
-- Price
+- Transaction type
+- Stock symbol
 - Quantity
+- Execution price
 - Timestamp
 
 ---
 
-# 🏗️ System Architecture
+## System Architecture
 
 ![Architecture](docs/architecture.png)
 
-The application follows a layered architecture.
+PaperTrader follows a layered architecture.
 
 - **Presentation Layer** – Flask routes and HTML templates
-- **Repository Layer** – Handles business logic and database operations
-- **Database Layer** – SQLite with normalized schema
+- **Repository Layer** – Business logic and data access
+- **Database Layer** – SQLite persistence
 - **External Services**
-  - Finnhub API (Live Market Prices)
-  - SEC Company Database (Company Symbol Lookup)
+  - Finnhub API for live market prices
+  - SEC Company Ticker Database for symbol lookup
 
 ---
 
-# 📘 Conceptual Class Diagram
+## Conceptual Class Diagram
 
 ![Class Diagram](docs/class_diagram.png)
 
-The class diagram illustrates the relationships between the core domain models including:
+The class diagram illustrates the relationships between the primary domain models:
 
 - User
 - Portfolio
@@ -110,11 +116,11 @@ The class diagram illustrates the relationships between the core domain models i
 
 ---
 
-# 🗄️ Entity Relationship Diagram
+## Entity Relationship Diagram
 
 ![ER Diagram](docs/er_diagram.png)
 
-Database Tables:
+Database schema consisting of:
 
 - Users
 - Holdings
@@ -123,22 +129,23 @@ Database Tables:
 - Watchlist Stocks
 
 ---
-# 🛠 Tech Stack
+
+## Technology Stack
 
 | Category | Technology |
 |-----------|------------|
-| Backend | Python |
-| Framework | Flask |
+| Programming Language | Python |
+| Web Framework | Flask |
 | Database | SQLite |
 | Authentication | Werkzeug |
 | Market Data | Finnhub API |
-| Company Search | SEC Company Database |
+| Symbol Lookup | SEC Company Ticker Database |
 | Frontend | HTML, CSS, JavaScript |
 | Version Control | Git & GitHub |
 
 ---
 
-# 📂 Project Structure
+## Project Structure
 
 ```text
 PaperTrader/
@@ -152,56 +159,48 @@ PaperTrader/
 ├── repositories/
 ├── database/
 ├── routes/
+├── services/
 ├── templates/
 ├── static/
-├── utils/
-├── data/
-└── docs/
-    ├── architecture.png
-    ├── class_diagram.png
-    ├── er_diagram.png
-    ├── buy_sequence.png
-    └── screenshots/
-        ├── login.png
-        ├── dashboard.png
-        ├── watchlists.png
-        └── transactions.png
+├── tests/
+├── docs/
+└── data/
 ```
 
 ---
 
-# ⚙️ Installation
+## Installation
 
-## Clone the repository
+### Clone the repository
 
 ```bash
 git clone https://github.com/<your-username>/PaperTrader.git
 cd PaperTrader
 ```
 
-## Create a Virtual Environment
+### Create a virtual environment
 
-### Windows
+**Windows**
 
 ```bash
 python -m venv .venv
 .venv\Scripts\activate
 ```
 
-### Linux / macOS
+**Linux / macOS**
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 ```
 
-## Install Dependencies
+### Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## Configure Environment Variables
+### Configure environment variables
 
 Create a `.env` file in the project root.
 
@@ -211,19 +210,19 @@ SEC_CONTACT_EMAIL=your_email@example.com
 SECRET_KEY=your_secret_key
 ```
 
-## Initialize the Database
+### Initialize the database
 
 ```bash
 python init_db.py
 ```
 
-## Run the Application
+### Run the application
 
 ```bash
 python app.py
 ```
 
-Open your browser and visit:
+Open the application in your browser:
 
 ```
 http://127.0.0.1:5000
@@ -231,28 +230,30 @@ http://127.0.0.1:5000
 
 ---
 
-# 🚀 Future Improvements
+## Future Enhancements
 
-- Email Verification
-- Password Reset
-- Limit & Stop Orders
-- Portfolio Analytics
-- Candlestick Charts
-- Stock News Integration
+- Email verification
+- Password reset
+- Portfolio analytics
+- Interactive price charts
+- Stop-loss and limit orders
+- News integration
 - REST API
-- Docker Support
-- PostgreSQL Migration
-- Cloud Deployment (AWS / Azure)
+- PostgreSQL support
+- Docker deployment
+- Cloud deployment (AWS or Azure)
 
 ---
 
-# 📄 License
+## License
 
 This project is licensed under the **MIT License**.
 
-See the [LICENSE](LICENSE) file for more information.
+See the [LICENSE](LICENSE) file for additional information.
 
-# 👨‍💻 Author
+---
+
+## Author
 
 **Arjun Mohan Saxena**
 
