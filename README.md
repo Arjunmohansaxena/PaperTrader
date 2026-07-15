@@ -52,7 +52,7 @@ The dashboard provides a complete overview of the portfolio including:
 
 ## ⭐ Watchlists
 
-![Watchlists](docs/screenshots/watchlists.png)
+![Watchlists](docs/screenshots/watchlist.png)
 
 Create and manage multiple watchlists with quick access to market prices.
 
@@ -67,7 +67,7 @@ Features:
 
 ## 📜 Transaction History
 
-![Transactions](docs/screenshots/transactions.png)
+![Transactions](docs/screenshots/transaction.png)
 
 A complete ledger of all executed paper trades including:
 
@@ -123,22 +123,6 @@ Database Tables:
 - Watchlist Stocks
 
 ---
-
-# 🔄 Buy Stock Workflow
-
-![Sequence Diagram](docs/buy_sequence.png)
-
-Sequence Overview:
-
-1. User enters company name and quantity.
-2. Application retrieves the stock symbol from the SEC Company Database.
-3. Live stock price is fetched from Finnhub.
-4. User balance is validated.
-5. Holdings and transactions are updated.
-6. Portfolio summary is refreshed.
-
----
-
 # 🛠 Tech Stack
 
 | Category | Technology |
