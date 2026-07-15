@@ -248,9 +248,9 @@ http://127.0.0.1:5000
 
 # 📄 License
 
-This project is intended for educational purposes only and does **not** execute real financial trades.
+This project is licensed under the **MIT License**.
 
----
+See the [LICENSE](LICENSE) file for more information.
 
 # 👨‍💻 Author
 
