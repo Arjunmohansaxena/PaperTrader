@@ -284,10 +284,6 @@ def get_historical_prices(symbol: str, range_key: str) -> list[dict]:
             interval=interval,
             auto_adjust=False
         )
-        print("DataFrame:")
-        print(df)
-        print("Shape:", df.shape)
-        print("Columns:", df.columns)
     except Exception as e:
         raise StockNotFoundError(f"Could not fetch chart data for {symbol}: {e}")
 

@@ -27,7 +27,25 @@
                 </div>
                 <span class="workspace-badge">Hobby</span>
             </div>
+             <!-- Sidebar Search -->
+            <div class="sidebar-search">
+                <div class="sidebar-search-box">
+                    <svg class="sidebar-search-icon" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
 
+                    <input
+                        id="sidebar-search-input"
+                        type="text"
+                        placeholder="Search company or symbol..."
+                        autocomplete="off">
+                </div>
+
+                <div id="sidebar-search-results" class="sidebar-search-results"></div>
+            </div>
             <!-- Nav Links -->
             <nav class="sidebar-nav">
                 <a href="{{ url_for('dashboard') }}" class="nav-item {{ 'active' if request.endpoint == 'dashboard' }}">
@@ -38,19 +56,6 @@
                         <rect x="3" y="16" width="7" height="5"></rect>
                     </svg>
                     Overview
-                </a>
-                <a href="{{ url_for('buy') }}" class="nav-item {{ 'active' if request.endpoint == 'buy' }}">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <line x1="12" y1="5" x2="12" y2="19"></line>
-                        <line x1="5" y1="12" x2="19" y2="12"></line>
-                    </svg>
-                    Buy Stock
-                </a>
-                <a href="{{ url_for('sell') }}" class="nav-item {{ 'active' if request.endpoint == 'sell' }}">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <line x1="5" y1="12" x2="19" y2="12"></line>
-                    </svg>
-                    Sell Stock
                 </a>
                 <a href="{{ url_for('history') }}" class="nav-item {{ 'active' if request.endpoint == 'history' }}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -113,19 +118,6 @@
                     </div>
                 </div>
 
-                <div class="top-bar-right">
-                    <!-- Search Form -->
-                    <form action="{{ url_for('buy') }}" method="get" class="top-search-form">
-                        <svg class="search-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="11" cy="11" r="8"></circle>
-                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                        </svg>
-                        <input type="text" name="symbol" class="top-search-input" placeholder="Search stock or buy..." autocomplete="off">
-                    </form>
-                    <div class="btn-group">
-                        <a href="{{ url_for('buy') }}" class="btn btn-primary btn-sm">Trade Stock</a>
-                    </div>
-                </div>
             </header>
             {% endif %}
 
@@ -148,5 +140,6 @@
             </div>
         </main>
     </div>
+<script src="{{ url_for('static', filename='search.js') }}"></script>
 </body>
 </html>
