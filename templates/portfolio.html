@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% block title %}Portfolio — PaperTrader{% endblock %}
+
+{% block content %}
+{% set colors = ['#0070f3', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#3b82f6', '#84cc16'] %}
+
+<div class="dashboard-title-row">
+    <h1>Portfolio</h1>
+    <div class="btn-group">
+        <a href="{{ url_for('buy') }}" class="btn btn-primary">Buy Stock</a>
+        <a href="{{ url_for('history') }}" class="btn btn-secondary">View Ledger</a>
+    </div>
+</div>
+
+{% if metrics is none %}
+<div class="empty-state-container">
+    <h3 class="empty-title">No portfolio found</h3>
+    <p class="empty-desc">We couldn't find an account for you. Try logging out and back in.</p>
+</div>
+{% else %}
+
+<!-- 1. Hero Cards -->
+<div class="hero-cards-grid">
+    <div class="card hero-card">
+        <span class="hero-card-label">Portfolio Value</span>
+        <span class="hero-card-value">${{ "%.2f"|format(metrics.portfolio_value) }}</span>
+    </div>
+    <div class="card hero-card">
+        <span class="hero-card-label">Cash Balance</span>
+        <span class="hero-card-value">${{ "%.2f"|format(metrics.cash_balance) }}</span>
+    </div>
+    <div class="card hero-card">
+        <span class="hero-card-label">Invested Capital</span>
+        <span class="hero-card-value">${{ "%.2f"|format(metrics.invested_capital) }}</span>
+    </div>
+    <div class="card hero-card">
+        <span class="hero-card-label">Unrealized P/L</span>
+        <span class="hero-card-value {{ 'gain' if metrics.unrealized_pnl >= 0 else 'loss' }}">
+            {{ '+' if metrics.unrealized_pnl >= 0 else '' }}${{ "%.2f"|format(metrics.unrealized_pnl) }}
+        </span>
+    </div>
+    <div class="card hero-card">
+        <span class="hero-card-label">Realized P/L</span>
+        <span class="hero-card-value {{ 'gain' if metrics.realized_pnl >= 0 else 'loss' }}">
+            {{ '+' if metrics.realized_pnl >= 0 else '' }}${{ "%.2f"|format(metrics.realized_pnl) }}
+        </span>
+    </div>
+    <div class="card hero-card">
+        <span class="hero-card-label">Total Return</span>
+        <span class="hero-card-value {{ 'gain' if metrics.total_return_pct >= 0 else 'loss' }}">
+            {{ '+' if metrics.total_return_pct >= 0 else '' }}{{ "%.2f"|format(metrics.total_return_pct) }}%
+        </span>
+    </div>
+</div>
+
+<!-- 2. Portfolio Performance Chart -->
+<div class="card chart-card">
+    <div class="chart-card-header">
+        <h3 class="card-title" style="margin: 0;">Portfolio Performance</h3>
+        <div class="range-tabs">
+            <button type="button" class="range-tab portfolio-range-tab" data-range="1D">1D</button>
+            <button type="button" class="range-tab portfolio-range-tab" data-range="1W">1W</button>
+            <button type="button" class="range-tab portfolio-range-tab active" data-range="1M">1M</button>
+            <button type="button" class="range-tab portfolio-range-tab" data-range="3M">3M</button>
+            <button type="button" class="range-tab portfolio-range-tab" data-range="1Y">1Y</button>
+            <button type="button" class="range-tab portfolio-range-tab" data-range="ALL">ALL</button>
+        </div>
+    </div>
+    <div class="chart-summary">
+        <span class="chart-summary-price" id="portfolio-chart-summary-value">${{ "%.2f"|format(metrics.portfolio_value) }}</span>
+        <span class="chart-summary-change" id="portfolio-chart-summary-change"></span>
+    </div>
+    <div class="chart-svg-wrap" id="portfolio-chart-svg-wrap">
+        <div class="chart-loading">Loading chart…</div>
+    </div>
+    <div class="chart-axis-labels" id="portfolio-chart-axis-labels"></div>
+</div>
+
+{% if metrics.holdings %}
+<!-- 3 & 5. Asset Allocation + Sector Allocation -->
+<div class="pie-row">
+    <div class="card pie-card">
+        <h3 class="card-title">Asset Allocation</h3>
+        <div class="pie-body">
+            {% set ns = namespace(acc=0) %}
+            <div class="pie-visual" style="background: conic-gradient({% for row in metrics.allocation %}{{ '#5a5a5a' if row.label == 'Cash' else colors[loop.index0 % (colors|length)] }} {{ ns.acc }}% {{ ns.acc + row.pct }}%{% if not loop.last %}, {% endif %}{% set ns.acc = ns.acc + row.pct %}{% endfor %});"></div>
+            <div class="pie-legend">
+                {% for row in metrics.allocation %}
+                <div class="pie-legend-item">
+                    <span class="pie-legend-swatch" style="background: {{ '#5a5a5a' if row.label == 'Cash' else colors[loop.index0 % (colors|length)] }};"></span>
+                    <span class="pie-legend-label">{{ row.label }}</span>
+                    <span class="pie-legend-pct">{{ "%.1f"|format(row.pct) }}%</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="card pie-card">
+        <h3 class="card-title">Sector Allocation</h3>
+        <div class="pie-body">
+            {% set ns2 = namespace(acc=0) %}
+            <div class="pie-visual" style="background: conic-gradient({% for row in metrics.sector_allocation %}{{ '#5a5a5a' if row.sector == 'Cash' else colors[loop.index0 % (colors|length)] }} {{ ns2.acc }}% {{ ns2.acc + row.pct }}%{% if not loop.last %}, {% endif %}{% set ns2.acc = ns2.acc + row.pct %}{% endfor %});"></div>
+            <div class="pie-legend">
+                {% for row in metrics.sector_allocation %}
+                <div class="pie-legend-item">
+                    <span class="pie-legend-swatch" style="background: {{ '#5a5a5a' if row.sector == 'Cash' else colors[loop.index0 % (colors|length)] }};"></span>
+                    <span class="pie-legend-label">{{ row.sector }}</span>
+                    <span class="pie-legend-pct">{{ "%.1f"|format(row.pct) }}%</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 4. Holdings Table -->
+<div class="card">
+    <h3 class="card-title">Holdings</h3>
+    <div class="vercel-table-container">
+        <table class="vercel-table">
+            <thead>
+                <tr>
+                    <th>Symbol</th>
+                    <th>Qty</th>
+                    <th>Avg Cost</th>
+                    <th>Current</th>
+                    <th>Value</th>
+                    <th>P/L</th>
+                    <th>Return %</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in metrics.holdings %}
+                <tr>
+                    <td><a href="{{ url_for('company_page', symbol=row.symbol) }}" class="holdings-name-cell">{{ row.name }}<span class="holdings-symbol-tag mono">{{ row.symbol }}</span></a></td>
+                    <td>{{ row.quantity }}</td>
+                    <td class="mono">${{ "%.2f"|format(row.avg_cost) }}</td>
+                    <td class="mono">${{ "%.2f"|format(row.current_price) }}</td>
+                    <td class="mono">${{ "%.2f"|format(row.value) }}</td>
+                    <td class="mono {{ 'gain' if row.pnl >= 0 else 'loss' }}">{{ '+' if row.pnl >= 0 else '' }}{{ "%.2f"|format(row.pnl) }}</td>
+                    <td class="mono {{ 'gain' if row.return_pct >= 0 else 'loss' }}">{{ '+' if row.return_pct >= 0 else '' }}{{ "%.2f"|format(row.return_pct) }}%</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 6. Top Movers -->
+<div class="movers-row">
+    <div class="card mover-card">
+        <span class="mover-label">Top Gainer</span>
+        {% if metrics.top_gainer %}
+        <a href="{{ url_for('company_page', symbol=metrics.top_gainer.symbol) }}" class="mover-symbol">{{ metrics.top_gainer.name }}</a>
+        <span class="mover-pct gain">+{{ "%.2f"|format(metrics.top_gainer.pct) }}%</span>
+        <span class="mover-basis">{{ 'today' if metrics.top_gainer.basis == 'day_change_pct' else 'since purchase' }}</span>
+        {% else %}
+        <span class="mover-empty">Not enough live data yet.</span>
+        {% endif %}
+    </div>
+    <div class="card mover-card">
+        <span class="mover-label">Top Loser</span>
+        {% if metrics.top_loser %}
+        <a href="{{ url_for('company_page', symbol=metrics.top_loser.symbol) }}" class="mover-symbol">{{ metrics.top_loser.name }}</a>
+        <span class="mover-pct loss">{{ "%.2f"|format(metrics.top_loser.pct) }}%</span>
+        <span class="mover-basis">{{ 'today' if metrics.top_loser.basis == 'day_change_pct' else 'since purchase' }}</span>
+        {% else %}
+        <span class="mover-empty">Not enough live data yet.</span>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 7. Portfolio Statistics -->
+<div class="card">
+    <h3 class="card-title">Portfolio Statistics</h3>
+    <div class="stats-grid">
+        <div class="detail-item">
+            <span class="detail-label">Number of Holdings</span>
+            <span class="detail-value">{{ metrics.stats.num_holdings }}</span>
+        </div>
+        <div class="detail-item">
+            <span class="detail-label">Largest Position</span>
+            <span class="detail-value">
+                {% if metrics.stats.largest_position %}{{ metrics.stats.largest_position.name }} (${{ "%.2f"|format(metrics.stats.largest_position.value) }}){% else %}—{% endif %}
+            </span>
+        </div>
+        <div class="detail-item">
+            <span class="detail-label">Cash Allocation</span>
+            <span class="detail-value">{{ "%.1f"|format(metrics.stats.cash_allocation_pct) }}%</span>
+        </div>
+        <div class="detail-item">
+            <span class="detail-label">Average Return</span>
+            <span class="detail-value {{ 'gain' if metrics.stats.average_return_pct >= 0 else 'loss' }}">
+                {{ '+' if metrics.stats.average_return_pct >= 0 else '' }}{{ "%.2f"|format(metrics.stats.average_return_pct) }}%
+            </span>
+        </div>
+        <div class="detail-item">
+            <span class="detail-label">Best Performer</span>
+            <span class="detail-value gain">
+                {% if metrics.stats.best_performer %}{{ metrics.stats.best_performer.name }} ({{ "+%.2f"|format(metrics.stats.best_performer.return_pct) }}%){% else %}—{% endif %}
+            </span>
+        </div>
+        <div class="detail-item">
+            <span class="detail-label">Worst Performer</span>
+            <span class="detail-value loss">
+                {% if metrics.stats.worst_performer %}{{ metrics.stats.worst_performer.name }} ({{ "%.2f"|format(metrics.stats.worst_performer.return_pct) }}%){% else %}—{% endif %}
+            </span>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<div class="empty-state-container">
+    <h3 class="empty-title">No open positions yet</h3>
+    <p class="empty-desc">Buy your first stock to unlock allocation, sector, and performance breakdowns here.</p>
+    <a href="{{ url_for('buy') }}" class="btn btn-primary">Start Trading</a>
+</div>
+{% endif %}
+
+{% endif %}
+
+<script src="{{ url_for('static', filename='portfolio_chart.js') }}"></script>
+{% endblock %}

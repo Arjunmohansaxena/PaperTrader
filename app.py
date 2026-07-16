@@ -23,6 +23,7 @@ from services.market_data_provider import (
     get_market_news,
     get_company_news
 )
+from services.portfolio_metrics import get_portfolio_metrics, compute_portfolio_history
 from utils.exceptions import StockNotFoundError
 
 BASE_DIR = os.path.dirname(__file__)
@@ -185,6 +186,27 @@ def dashboard():
         transactions=transactions,
         news_preview=news_preview,
     )
+
+
+@app.route("/portfolio")
+@login_required
+def portfolio_view():
+    user = current_user()
+    metrics = get_portfolio_metrics(user.user_id, portfolio_repo)
+    return render_template("portfolio.html", user=user, metrics=metrics)
+
+
+@app.route("/api/portfolio/history")
+@login_required
+def api_portfolio_history():
+    user = current_user()
+    range_key = request.args.get("range", "1M")
+    transactions = portfolio_repo.get_transaction_history(user.user_id)
+    try:
+        points = compute_portfolio_history(transactions, range_key)
+    except Exception as exc:
+        return jsonify({"points": [], "error": str(exc)})
+    return jsonify({"points": points})
 
 
 @app.route("/buy", methods=["GET", "POST"])
