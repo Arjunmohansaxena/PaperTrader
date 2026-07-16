@@ -3,6 +3,7 @@ import json
 import os
 import time
 from datetime import datetime, timedelta
+import yfinance as yf
 
 import requests
 from dotenv import load_dotenv
@@ -12,6 +13,7 @@ from utils.exceptions import StockNotFoundError
 load_dotenv()
 
 FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY")
+FMP_API_KEY = os.getenv("FMP_API_KEY")
 
 CACHE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "company_tickers.json")
 CACHE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60
@@ -219,3 +221,89 @@ def get_company_news(symbol: str, days: int = 14, limit: int = 20) -> list[dict]
     articles = [_normalize_article(item) for item in data]
     articles.sort(key=lambda a: a["published"] or datetime.min, reverse=True)
     return articles[:limit]
+
+def get_company_profile(symbol: str) -> dict:
+    """Returns Finnhub's company profile (name, industry, exchange, market
+    cap, website, logo, etc.) for `symbol`. Raises StockNotFoundError if no
+    API key is configured or no profile is found."""
+    if not FINNHUB_API_KEY:
+        raise StockNotFoundError("FINNHUB_API_KEY is not set; cannot fetch a company profile.")
+
+    url = "https://finnhub.io/api/v1/stock/profile2"
+    params = {"symbol": symbol, "token": FINNHUB_API_KEY}
+
+    try:
+        response = requests.get(url, params=params, timeout=5)
+        response.raise_for_status()
+        data = response.json()
+    except requests.RequestException as e:
+        raise StockNotFoundError(f"Could not reach company profile service for {symbol}: {e}")
+
+    if not data or not data.get("name"):
+        raise StockNotFoundError(f"No company profile found for {symbol}")
+
+    return data
+
+
+def get_company_name(symbol: str) -> str | None:
+    """Best-effort company display name from the cached SEC ticker index,
+    used as a fallback page title when no live Finnhub profile is available."""
+    try:
+        index = _load_ticker_index()
+    except StockNotFoundError:
+        return None
+
+    symbol = symbol.strip().upper()
+    for _, ticker, display_name in index:
+        if ticker == symbol:
+            return display_name
+    return None
+
+
+HISTORY_RANGES = {
+    "1D": ("1d", "5m"),
+    "1W": ("5d", "30m"),
+    "1M": ("1mo", "1d"),
+    "1Y": ("1y", "1d"),
+    "5Y": ("5y", "1wk"),
+    "ALL": ("max", "1mo"),
+}
+
+
+def get_historical_prices(symbol: str, range_key: str) -> list[dict]:
+    range_key = range_key.upper()
+
+    if range_key not in HISTORY_RANGES:
+        raise StockNotFoundError(f"Unsupported chart range '{range_key}'.")
+
+    period, interval = HISTORY_RANGES[range_key]
+
+    try:
+        df = yf.Ticker(symbol).history(
+            period=period,
+            interval=interval,
+            auto_adjust=False
+        )
+        print("DataFrame:")
+        print(df)
+        print("Shape:", df.shape)
+        print("Columns:", df.columns)
+    except Exception as e:
+        raise StockNotFoundError(f"Could not fetch chart data for {symbol}: {e}")
+
+    if df.empty:
+        raise StockNotFoundError(f"No historical data found for {symbol}.")
+
+    points = []
+
+    for timestamp, row in df.iterrows():
+        points.append({
+            "timestamp": int(timestamp.timestamp()),
+            "open": float(row["Open"]),
+            "high": float(row["High"]),
+            "low": float(row["Low"]),
+            "close": float(row["Close"]),
+            "volume": int(row["Volume"]),
+        })
+
+    return points

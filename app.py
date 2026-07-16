@@ -15,11 +15,13 @@ from repositories.user_repository import UserRepository
 from repositories.watchlist_repository import WatchlistRepository
 from services.finnhub_stream import FinnhubPriceStream
 from services.market_data_provider import (
-    get_company_news,
-    get_market_news,
     get_stock_price,
-    get_stock_symbol,
     search_stock,
+    get_company_profile,
+    get_company_name,
+    get_historical_prices,
+    get_market_news,
+    get_company_news
 )
 from utils.exceptions import StockNotFoundError
 
@@ -453,6 +455,69 @@ def price_bootstrap_loop():
     while True:
         bootstrap_prices()
         socketio.sleep(REST_BOOTSTRAP_INTERVAL_SECONDS)
+
+@app.route("/company/<symbol>")
+@login_required
+def company_page(symbol):
+    user = current_user()
+    symbol = symbol.strip().upper()
+
+    try:
+        price = float(get_stock_price(symbol))
+        live_price = True
+    except Exception:
+        price = None
+        live_price = False
+
+    try:
+        profile = get_company_profile(symbol)
+    except Exception:
+        profile = None
+
+    company_name = (profile or {}).get("name") or get_company_name(symbol) or symbol
+
+    portfolio = portfolio_repo.get_by_user_id(user.user_id)
+    position = portfolio.positions.get(symbol) if portfolio else None
+    position_data = None
+    if position:
+        reference_price = price if price is not None else position.avg_buy_price
+        position_data = {
+            "quantity": position.quantity,
+            "avg_price": position.avg_buy_price,
+            "pnl": position.unrealized_profit_loss(reference_price),
+        }
+
+    watchlists = watchlist_repo.get_by_user_id(user.user_id)
+    symbol_watchlist_ids = {wl.watch_list_id for wl in watchlists if symbol in wl.stocks}
+
+    transactions = [
+        txn for txn in portfolio_repo.get_transaction_history(user.user_id) if txn.symbol == symbol
+    ][:10]
+
+    return render_template(
+        "company.html",
+        symbol=symbol,
+        company_name=company_name,
+        profile=profile,
+        price=price,
+        live_price=live_price,
+        position=position_data,
+        watchlists=watchlists,
+        symbol_watchlist_ids=symbol_watchlist_ids,
+        transactions=transactions,
+    )
+
+
+@app.route("/api/company/<symbol>/history")
+@login_required
+def api_company_history(symbol):
+    symbol = symbol.strip().upper()
+    range_key = request.args.get("range", "1D")
+    try:
+        points = get_historical_prices(symbol, range_key)
+    except Exception as exc:
+        return jsonify({"points": [], "error": str(exc)})
+    return jsonify({"points": points})
 
 
 if __name__ == "__main__":

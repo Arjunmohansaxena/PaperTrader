@@ -121,12 +121,12 @@
                 <div class="holding-left">
                     <div class="holding-icon">{{ row.symbol[:2] }}</div>
                     <div class="holding-meta">
-                        <span class="holding-symbol-label">
+                        <a href="{{ url_for('company_page', symbol=row.symbol) }}" class="holding-symbol-label">
                             {{ row.symbol }}
                             {% if not row.live %}
                             <span class="holding-stale-dot" title="Live price unavailable, displaying average buy price"></span>
                             {% endif %}
-                        </span>
+                        </a>
                         <span class="holding-qty-label">Quantity: {{ row.quantity }}</span>
                     </div>
                 </div>
