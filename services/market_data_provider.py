@@ -23,7 +23,10 @@ SEC_CONTACT_EMAIL = os.getenv("SEC_CONTACT_EMAIL", "unset-contact@example.com")
 _ticker_index = None
 
 
-def get_stock_price(symbol: str) -> float:
+def get_stock_quote(symbol: str) -> dict:
+    """Returns Finnhub's full quote payload for `symbol`: current price (c),
+    change (d), percent change (dp), open (o), high (h), low (l), and
+    previous close (pc). Raises StockNotFoundError if unavailable."""
     if not FINNHUB_API_KEY:
         raise StockNotFoundError("FINNHUB_API_KEY is not set; cannot fetch a live price.")
 
@@ -40,7 +43,11 @@ def get_stock_price(symbol: str) -> float:
     if data.get("c", 0) == 0:
         raise StockNotFoundError(f"No price found for {symbol}")
 
-    return float(data["c"])
+    return data
+
+
+def get_stock_price(symbol: str) -> float:
+    return float(get_stock_quote(symbol)["c"])
 
 
 def _load_ticker_index() -> list[tuple[str, str, str]]:
@@ -264,6 +271,7 @@ HISTORY_RANGES = {
     "1D": ("1d", "5m"),
     "1W": ("5d", "30m"),
     "1M": ("1mo", "1d"),
+    "3M": ("3mo", "1d"),
     "1Y": ("1y", "1d"),
     "5Y": ("5y", "1wk"),
     "ALL": ("max", "1mo"),
