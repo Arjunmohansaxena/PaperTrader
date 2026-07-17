@@ -28,7 +28,9 @@
                 {% for stock in wl.stocks %}
                 <div class="watchlist-stock-row">
                     <div class="wl-stock-left">
-                        <span class="wl-stock-symbol">{{ stock.symbol }}</span>
+                        <a href="{{ url_for('company_page', symbol=stock.symbol) }}" class="wl-stock-symbol">
+                            {{ stock.symbol }}
+                        </a>
                         {% if stock.price > 0 %}
                         <span class="wl-stock-price">${{ "%.2f"|format(stock.price) }}</span>
                         {% else %}

@@ -3,6 +3,7 @@ import os
 from datetime import datetime
 from functools import wraps
 
+from flask_socketio import SocketIO, emit
 from flask import jsonify 
 from flask import Flask, flash, redirect, render_template, request, session, url_for
 
@@ -10,10 +11,22 @@ from database.db_manager import DatabaseManager
 from models.portfolio import Portfolio
 from models.transaction import Transaction
 from repositories.portfolio_repository import PortfolioRepository
+from repositories.portfolio_review_repository import PortfolioReviewRepository
 from repositories.user_repository import UserRepository
 from repositories.watchlist_repository import WatchlistRepository
-from services.market_data_provider import get_stock_price, get_stock_symbol, search_stock
-from utils.exceptions import StockNotFoundError
+from services.finnhub_stream import FinnhubPriceStream
+from services.market_data_provider import (
+    get_stock_price,
+    search_stock,
+    get_company_profile,
+    get_company_name,
+    get_historical_prices,
+    get_market_news,
+    get_company_news
+)
+from services.ai_review_service import generate_portfolio_review
+from services.portfolio_metrics import get_portfolio_metrics, compute_portfolio_history
+from utils.exceptions import AIReviewError, StockNotFoundError
 
 BASE_DIR = os.path.dirname(__file__)
 DB_PATH = os.path.join(BASE_DIR, "database", "PaperTrader.db")
@@ -21,6 +34,7 @@ SCHEMA_PATH = os.path.join(BASE_DIR, "database", "schema.sql")
 STARTING_BALANCE = 100000.00
 
 app = Flask(__name__)
+socketio = SocketIO(app, cors_allowed_origins="*")
 app.secret_key = os.environ.get("PAPERTRADER_SECRET_KEY", "dev-secret-key-change-me")
 
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
@@ -32,7 +46,9 @@ atexit.register(db_manager.close)
 user_repo = UserRepository(db_manager)
 portfolio_repo = PortfolioRepository(db_manager)
 watchlist_repo = WatchlistRepository(db_manager)
+portfolio_review_repo = PortfolioReviewRepository(db_manager)
 
+MAX_AI_REVIEWS_PER_USER_PER_DAY = 20
 
 def current_user():
     user_id = session.get("user_id")
@@ -124,7 +140,6 @@ def logout():
     session.clear()
     return redirect(url_for("login"))
 
-
 @app.route("/dashboard")
 @login_required
 def dashboard():
@@ -158,7 +173,13 @@ def dashboard():
     # Get watchlists and recent transaction history
     watchlists = watchlist_repo.get_by_user_id(user.user_id)
     transactions = portfolio_repo.get_transaction_history(user.user_id)[:3]
-    
+
+    # Small news preview for the dashboard widget
+    try:
+        news_preview = get_market_news(limit=4)
+    except Exception:
+        news_preview = []
+
     return render_template(
         "dashboard.html",
         user=user,
@@ -167,6 +188,114 @@ def dashboard():
         total_value=total_value,
         watchlists=watchlists,
         transactions=transactions,
+        news_preview=news_preview,
+    )
+
+
+@app.route("/portfolio")
+@login_required
+def portfolio_view():
+    user = current_user()
+    metrics = get_portfolio_metrics(user.user_id, portfolio_repo)
+    return render_template("portfolio.html", user=user, metrics=metrics)
+
+
+@app.route("/api/portfolio/history")
+@login_required
+def api_portfolio_history():
+    user = current_user()
+    range_key = request.args.get("range", "1M")
+    transactions = portfolio_repo.get_transaction_history(user.user_id)
+    try:
+        points = compute_portfolio_history(transactions, range_key)
+    except Exception as exc:
+        return jsonify({"points": [], "error": str(exc)})
+    return jsonify({"points": points})
+
+
+@app.route("/api/portfolio/review/latest")
+@login_required
+def api_portfolio_review_latest():
+    user = current_user()
+    latest = portfolio_review_repo.get_latest_by_user_id(user.user_id)
+    if latest is None:
+        return jsonify({"review": None})
+    return jsonify(latest)
+
+
+@app.route("/api/portfolio/review", methods=["POST"])
+@login_required
+def api_portfolio_review_generate():
+    user = current_user()
+
+    since_today = datetime.now().strftime("%Y-%m-%d 00:00:00")
+    reviews_today = portfolio_review_repo.count_since(user.user_id, since_today)
+    if reviews_today >= MAX_AI_REVIEWS_PER_USER_PER_DAY:
+        return jsonify({
+            "error": f"Daily AI review limit reached ({MAX_AI_REVIEWS_PER_USER_PER_DAY}/day). "
+                     f"Please try again tomorrow."
+        }), 429
+
+    metrics = get_portfolio_metrics(user.user_id, portfolio_repo)
+    if metrics is None:
+        return jsonify({"error": "No portfolio found for this account."}), 404
+
+    try:
+        review = generate_portfolio_review(metrics)
+    except AIReviewError as exc:
+        return jsonify({"error": str(exc)}), 502
+
+    review_id = portfolio_review_repo.save(user.user_id, metrics["portfolio_value"], review)
+    saved = portfolio_review_repo.get_by_id(review_id)
+    return jsonify(saved)
+
+
+@app.route("/portfolio/review/<int:review_id>/download")
+@login_required
+def download_portfolio_review(review_id):
+    user = current_user()
+    record = portfolio_review_repo.get_by_id(review_id)
+    if record is None:
+        flash("Review not found.", "error")
+        return redirect(url_for("portfolio_view"))
+
+    # Reviews are keyed by user via the users table, but double-check
+    # ownership here since review_id is a guessable sequential int.
+    owner_check = db_manager.fetch_one(
+        "SELECT user_id FROM portfolio_reviews WHERE review_id = ?", (review_id,)
+    )
+    if owner_check is None or owner_check[0] != user.user_id:
+        flash("Review not found.", "error")
+        return redirect(url_for("portfolio_view"))
+
+    review = record["review"]
+    lines = [
+        "PaperTrader — AI Portfolio Review",
+        f"Generated: {record['generated_at']}",
+        f"Portfolio value at time of review: ${record['portfolio_value']:,.2f}",
+        "",
+        "SUMMARY",
+        review.get("summary", ""),
+        "",
+        "DIVERSIFICATION NOTES",
+        review.get("diversification_notes", ""),
+        "",
+        "RISK FLAGS",
+    ]
+    lines += [f"- {item}" for item in review.get("risk_flags", [])] or ["- None noted."]
+    lines += ["", "STRENGTHS"]
+    lines += [f"- {item}" for item in review.get("strengths", [])] or ["- None noted."]
+    lines += ["", "SUGGESTIONS"]
+    lines += [f"- {item}" for item in review.get("suggestions", [])] or ["- None noted."]
+    lines += ["", "This is an AI-generated review of a simulated (paper trading) portfolio.",
+              "It is not financial advice."]
+
+    body = "\n".join(lines)
+    filename = f"portfolio_review_{review_id}.txt"
+    return app.response_class(
+        body,
+        mimetype="text/plain",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
 
@@ -373,5 +502,137 @@ def delete_watchlist(watchlist_id):
     return redirect(url_for("watchlists_view"))
 
 
+@app.route("/news")
+@login_required
+def news():
+    symbol = request.args.get("symbol", "").strip().upper()
+    articles = []
+    error = None
+
+    try:
+        if symbol:
+            articles = get_company_news(symbol)
+        else:
+            articles = get_market_news()
+    except Exception as exc:
+        error = str(exc)
+
+    return render_template("news.html", articles=articles, symbol=symbol, error=error)
+
+
+REST_BOOTSTRAP_INTERVAL_SECONDS = 60
+
+
+def _collect_tracked_symbols():
+    symbols = set()
+    for row in db_manager.fetch_all("SELECT DISTINCT stock_name FROM holdings"):
+        symbols.add(row[0])
+    for row in db_manager.fetch_all("SELECT DISTINCT stock_symbol FROM watchlist_stocks"):
+        symbols.add(row[0])
+    return symbols
+
+
+_last_prices = {}
+
+
+def _emit_price_updates(updates: dict):
+    global _last_prices
+    if not updates:
+        return
+    _last_prices.update(updates)
+    socketio.emit("price_update", updates)
+
+
+@socketio.on("connect")
+def handle_connect():
+    if _last_prices:
+        emit("price_update", _last_prices)
+
+
+def bootstrap_prices():
+    """REST snapshot for initial load, after-hours, and when WebSocket is quiet."""
+    symbols = _collect_tracked_symbols()
+    if not symbols:
+        return
+    prices = {}
+    for symbol in symbols:
+        try:
+            prices[symbol] = float(get_stock_price(symbol))
+        except Exception:
+            continue
+    _emit_price_updates(prices)
+
+
+def price_bootstrap_loop():
+    while True:
+        bootstrap_prices()
+        socketio.sleep(REST_BOOTSTRAP_INTERVAL_SECONDS)
+
+@app.route("/company/<symbol>")
+@login_required
+def company_page(symbol):
+    user = current_user()
+    symbol = symbol.strip().upper()
+
+    try:
+        price = float(get_stock_price(symbol))
+        live_price = True
+    except Exception:
+        price = None
+        live_price = False
+
+    try:
+        profile = get_company_profile(symbol)
+    except Exception:
+        profile = None
+
+    company_name = (profile or {}).get("name") or get_company_name(symbol) or symbol
+
+    portfolio = portfolio_repo.get_by_user_id(user.user_id)
+    position = portfolio.positions.get(symbol) if portfolio else None
+    position_data = None
+    if position:
+        reference_price = price if price is not None else position.avg_buy_price
+        position_data = {
+            "quantity": position.quantity,
+            "avg_price": position.avg_buy_price,
+            "pnl": position.unrealized_profit_loss(reference_price),
+        }
+
+    watchlists = watchlist_repo.get_by_user_id(user.user_id)
+    symbol_watchlist_ids = {wl.watch_list_id for wl in watchlists if symbol in wl.stocks}
+
+    transactions = [
+        txn for txn in portfolio_repo.get_transaction_history(user.user_id) if txn.symbol == symbol
+    ][:10]
+
+    return render_template(
+        "company.html",
+        symbol=symbol,
+        company_name=company_name,
+        profile=profile,
+        price=price,
+        live_price=live_price,
+        position=position_data,
+        watchlists=watchlists,
+        symbol_watchlist_ids=symbol_watchlist_ids,
+        transactions=transactions,
+    )
+
+
+@app.route("/api/company/<symbol>/history")
+@login_required
+def api_company_history(symbol):
+    symbol = symbol.strip().upper()
+    range_key = request.args.get("range", "1D")
+    try:
+        points = get_historical_prices(symbol, range_key)
+    except Exception as exc:
+        return jsonify({"points": [], "error": str(exc)})
+    return jsonify({"points": points})
+
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    socketio.start_background_task(price_bootstrap_loop)
+    FinnhubPriceStream(_collect_tracked_symbols, _emit_price_updates).start()
+    socketio.run(app, debug=True, allow_unsafe_werkzeug=True)

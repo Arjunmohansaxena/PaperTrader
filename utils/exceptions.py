@@ -17,3 +17,8 @@ class UserAlreadyExistsError(Exception):
 class InvalidCredentialsError(Exception):
     """Raised when login credentials are invalid."""
 
+
+class AIReviewError(Exception):
+    """Raised when the AI portfolio review cannot be generated (API failure,
+    missing key, or a response that couldn't be parsed into the expected
+    structured format)."""

@@ -2,6 +2,8 @@ import difflib
 import json
 import os
 import time
+from datetime import datetime, timedelta
+import yfinance as yf
 
 import requests
 from dotenv import load_dotenv
@@ -11,6 +13,7 @@ from utils.exceptions import StockNotFoundError
 load_dotenv()
 
 FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY")
+FMP_API_KEY = os.getenv("FMP_API_KEY")
 
 CACHE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "company_tickers.json")
 CACHE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60
@@ -20,7 +23,10 @@ SEC_CONTACT_EMAIL = os.getenv("SEC_CONTACT_EMAIL", "unset-contact@example.com")
 _ticker_index = None
 
 
-def get_stock_price(symbol: str) -> float:
+def get_stock_quote(symbol: str) -> dict:
+    """Returns Finnhub's full quote payload for `symbol`: current price (c),
+    change (d), percent change (dp), open (o), high (h), low (l), and
+    previous close (pc). Raises StockNotFoundError if unavailable."""
     if not FINNHUB_API_KEY:
         raise StockNotFoundError("FINNHUB_API_KEY is not set; cannot fetch a live price.")
 
@@ -37,7 +43,11 @@ def get_stock_price(symbol: str) -> float:
     if data.get("c", 0) == 0:
         raise StockNotFoundError(f"No price found for {symbol}")
 
-    return float(data["c"])
+    return data
+
+
+def get_stock_price(symbol: str) -> float:
+    return float(get_stock_quote(symbol)["c"])
 
 
 def _load_ticker_index() -> list[tuple[str, str, str]]:
@@ -140,3 +150,164 @@ def search_stock(query: str, limit: int = 8) -> list[dict]:
                 seen.add(item[1])
 
     return results[:limit]
+
+
+def _normalize_article(raw: dict) -> dict:
+    """Converts a raw Finnhub news payload into the shape templates expect."""
+    timestamp = raw.get("datetime") or 0
+    try:
+        published = datetime.fromtimestamp(int(timestamp)) if timestamp else None
+    except (ValueError, OSError):
+        published = None
+
+    return {
+        "id": raw.get("id"),
+        "headline": raw.get("headline") or "Untitled",
+        "summary": raw.get("summary") or "",
+        "source": raw.get("source") or "Unknown source",
+        "url": raw.get("url") or "",
+        "image": raw.get("image") or "",
+        "related": raw.get("related") or "",
+        "category": raw.get("category") or "",
+        "published": published,
+    }
+
+
+def get_market_news(category: str = "general", limit: int = 30) -> list[dict]:
+    """Returns the latest general market news headlines from Finnhub."""
+    if not FINNHUB_API_KEY:
+        raise StockNotFoundError("FINNHUB_API_KEY is not set; cannot fetch market news.")
+
+    url = "https://finnhub.io/api/v1/news"
+    params = {"category": category, "token": FINNHUB_API_KEY}
+
+    try:
+        response = requests.get(url, params=params, timeout=5)
+        response.raise_for_status()
+        data = response.json()
+    except requests.RequestException as e:
+        raise StockNotFoundError(f"Could not reach news service: {e}")
+
+    if not isinstance(data, list):
+        raise StockNotFoundError("Unexpected response from news service.")
+
+    articles = [_normalize_article(item) for item in data]
+    articles.sort(key=lambda a: a["published"] or datetime.min, reverse=True)
+    return articles[:limit]
+
+
+def get_company_news(symbol: str, days: int = 14, limit: int = 20) -> list[dict]:
+    """Returns recent news for a specific stock symbol from Finnhub."""
+    if not FINNHUB_API_KEY:
+        raise StockNotFoundError("FINNHUB_API_KEY is not set; cannot fetch company news.")
+
+    today = datetime.now().date()
+    start = today - timedelta(days=days)
+
+    url = "https://finnhub.io/api/v1/company-news"
+    params = {
+        "symbol": symbol,
+        "from": start.isoformat(),
+        "to": today.isoformat(),
+        "token": FINNHUB_API_KEY,
+    }
+
+    try:
+        response = requests.get(url, params=params, timeout=5)
+        response.raise_for_status()
+        data = response.json()
+    except requests.RequestException as e:
+        raise StockNotFoundError(f"Could not reach news service for {symbol}: {e}")
+
+    if not isinstance(data, list):
+        raise StockNotFoundError(f"Unexpected response from news service for {symbol}.")
+
+    if not data:
+        raise StockNotFoundError(f"No recent news found for {symbol}.")
+
+    articles = [_normalize_article(item) for item in data]
+    articles.sort(key=lambda a: a["published"] or datetime.min, reverse=True)
+    return articles[:limit]
+
+def get_company_profile(symbol: str) -> dict:
+    """Returns Finnhub's company profile (name, industry, exchange, market
+    cap, website, logo, etc.) for `symbol`. Raises StockNotFoundError if no
+    API key is configured or no profile is found."""
+    if not FINNHUB_API_KEY:
+        raise StockNotFoundError("FINNHUB_API_KEY is not set; cannot fetch a company profile.")
+
+    url = "https://finnhub.io/api/v1/stock/profile2"
+    params = {"symbol": symbol, "token": FINNHUB_API_KEY}
+
+    try:
+        response = requests.get(url, params=params, timeout=5)
+        response.raise_for_status()
+        data = response.json()
+    except requests.RequestException as e:
+        raise StockNotFoundError(f"Could not reach company profile service for {symbol}: {e}")
+
+    if not data or not data.get("name"):
+        raise StockNotFoundError(f"No company profile found for {symbol}")
+
+    return data
+
+
+def get_company_name(symbol: str) -> str | None:
+    """Best-effort company display name from the cached SEC ticker index,
+    used as a fallback page title when no live Finnhub profile is available."""
+    try:
+        index = _load_ticker_index()
+    except StockNotFoundError:
+        return None
+
+    symbol = symbol.strip().upper()
+    for _, ticker, display_name in index:
+        if ticker == symbol:
+            return display_name
+    return None
+
+
+HISTORY_RANGES = {
+    "1D": ("1d", "5m"),
+    "1W": ("5d", "30m"),
+    "1M": ("1mo", "1d"),
+    "3M": ("3mo", "1d"),
+    "1Y": ("1y", "1d"),
+    "5Y": ("5y", "1wk"),
+    "ALL": ("max", "1mo"),
+}
+
+
+def get_historical_prices(symbol: str, range_key: str) -> list[dict]:
+    range_key = range_key.upper()
+
+    if range_key not in HISTORY_RANGES:
+        raise StockNotFoundError(f"Unsupported chart range '{range_key}'.")
+
+    period, interval = HISTORY_RANGES[range_key]
+
+    try:
+        df = yf.Ticker(symbol).history(
+            period=period,
+            interval=interval,
+            auto_adjust=False
+        )
+    except Exception as e:
+        raise StockNotFoundError(f"Could not fetch chart data for {symbol}: {e}")
+
+    if df.empty:
+        raise StockNotFoundError(f"No historical data found for {symbol}.")
+
+    points = []
+
+    for timestamp, row in df.iterrows():
+        points.append({
+            "timestamp": int(timestamp.timestamp()),
+            "open": float(row["Open"]),
+            "high": float(row["High"]),
+            "low": float(row["Low"]),
+            "close": float(row["Close"]),
+            "volume": int(row["Volume"]),
+        })
+
+    return points
