@@ -51,3 +51,13 @@ CREATE TABLE IF NOT EXISTS watchlist_stocks (
     FOREIGN KEY (watch_list_id) REFERENCES watchlists(watch_list_id) ON DELETE CASCADE,
     UNIQUE (watch_list_id, stock_symbol)
 );
+
+-- Portfolio Reviews: AI-generated analyses of a user's portfolio at a point in time
+CREATE TABLE IF NOT EXISTS portfolio_reviews (
+    review_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    generated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    portfolio_value NUMERIC(15,2) NOT NULL,
+    review_json TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);

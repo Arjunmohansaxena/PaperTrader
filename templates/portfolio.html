@@ -218,7 +218,25 @@
 </div>
 {% endif %}
 
+{% if metrics.has_transactions or metrics.holdings %}
+<!-- 8. AI Portfolio Review -->
+<div class="card ai-review-card">
+    <div class="chart-card-header">
+        <h3 class="card-title" style="margin: 0;">AI Portfolio Review</h3>
+        <div class="btn-group">
+            <a id="ai-review-download" href="#" class="btn btn-secondary btn-sm" style="display:none;">Download</a>
+            <button type="button" id="ai-review-generate" class="btn btn-primary btn-sm">Generate Review</button>
+        </div>
+    </div>
+    <p class="ai-review-disclaimer">AI-generated commentary on your simulated portfolio. Not financial advice.</p>
+    <div id="ai-review-body">
+        <div class="ai-review-empty">No review yet. Click "Generate Review" to get an AI read on your portfolio's diversification, risk, and performance.</div>
+    </div>
+</div>
+{% endif %}
+
 {% endif %}
 
 <script src="{{ url_for('static', filename='portfolio_chart.js') }}"></script>
+<script src="{{ url_for('static', filename='ai_review.js') }}"></script>
 {% endblock %}

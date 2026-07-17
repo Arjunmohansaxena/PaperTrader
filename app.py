@@ -11,6 +11,7 @@ from database.db_manager import DatabaseManager
 from models.portfolio import Portfolio
 from models.transaction import Transaction
 from repositories.portfolio_repository import PortfolioRepository
+from repositories.portfolio_review_repository import PortfolioReviewRepository
 from repositories.user_repository import UserRepository
 from repositories.watchlist_repository import WatchlistRepository
 from services.finnhub_stream import FinnhubPriceStream
@@ -23,8 +24,9 @@ from services.market_data_provider import (
     get_market_news,
     get_company_news
 )
+from services.ai_review_service import generate_portfolio_review
 from services.portfolio_metrics import get_portfolio_metrics, compute_portfolio_history
-from utils.exceptions import StockNotFoundError
+from utils.exceptions import AIReviewError, StockNotFoundError
 
 BASE_DIR = os.path.dirname(__file__)
 DB_PATH = os.path.join(BASE_DIR, "database", "PaperTrader.db")
@@ -44,7 +46,9 @@ atexit.register(db_manager.close)
 user_repo = UserRepository(db_manager)
 portfolio_repo = PortfolioRepository(db_manager)
 watchlist_repo = WatchlistRepository(db_manager)
+portfolio_review_repo = PortfolioReviewRepository(db_manager)
 
+MAX_AI_REVIEWS_PER_USER_PER_DAY = 20
 
 def current_user():
     user_id = session.get("user_id")
@@ -207,6 +211,92 @@ def api_portfolio_history():
     except Exception as exc:
         return jsonify({"points": [], "error": str(exc)})
     return jsonify({"points": points})
+
+
+@app.route("/api/portfolio/review/latest")
+@login_required
+def api_portfolio_review_latest():
+    user = current_user()
+    latest = portfolio_review_repo.get_latest_by_user_id(user.user_id)
+    if latest is None:
+        return jsonify({"review": None})
+    return jsonify(latest)
+
+
+@app.route("/api/portfolio/review", methods=["POST"])
+@login_required
+def api_portfolio_review_generate():
+    user = current_user()
+
+    since_today = datetime.now().strftime("%Y-%m-%d 00:00:00")
+    reviews_today = portfolio_review_repo.count_since(user.user_id, since_today)
+    if reviews_today >= MAX_AI_REVIEWS_PER_USER_PER_DAY:
+        return jsonify({
+            "error": f"Daily AI review limit reached ({MAX_AI_REVIEWS_PER_USER_PER_DAY}/day). "
+                     f"Please try again tomorrow."
+        }), 429
+
+    metrics = get_portfolio_metrics(user.user_id, portfolio_repo)
+    if metrics is None:
+        return jsonify({"error": "No portfolio found for this account."}), 404
+
+    try:
+        review = generate_portfolio_review(metrics)
+    except AIReviewError as exc:
+        return jsonify({"error": str(exc)}), 502
+
+    review_id = portfolio_review_repo.save(user.user_id, metrics["portfolio_value"], review)
+    saved = portfolio_review_repo.get_by_id(review_id)
+    return jsonify(saved)
+
+
+@app.route("/portfolio/review/<int:review_id>/download")
+@login_required
+def download_portfolio_review(review_id):
+    user = current_user()
+    record = portfolio_review_repo.get_by_id(review_id)
+    if record is None:
+        flash("Review not found.", "error")
+        return redirect(url_for("portfolio_view"))
+
+    # Reviews are keyed by user via the users table, but double-check
+    # ownership here since review_id is a guessable sequential int.
+    owner_check = db_manager.fetch_one(
+        "SELECT user_id FROM portfolio_reviews WHERE review_id = ?", (review_id,)
+    )
+    if owner_check is None or owner_check[0] != user.user_id:
+        flash("Review not found.", "error")
+        return redirect(url_for("portfolio_view"))
+
+    review = record["review"]
+    lines = [
+        "PaperTrader — AI Portfolio Review",
+        f"Generated: {record['generated_at']}",
+        f"Portfolio value at time of review: ${record['portfolio_value']:,.2f}",
+        "",
+        "SUMMARY",
+        review.get("summary", ""),
+        "",
+        "DIVERSIFICATION NOTES",
+        review.get("diversification_notes", ""),
+        "",
+        "RISK FLAGS",
+    ]
+    lines += [f"- {item}" for item in review.get("risk_flags", [])] or ["- None noted."]
+    lines += ["", "STRENGTHS"]
+    lines += [f"- {item}" for item in review.get("strengths", [])] or ["- None noted."]
+    lines += ["", "SUGGESTIONS"]
+    lines += [f"- {item}" for item in review.get("suggestions", [])] or ["- None noted."]
+    lines += ["", "This is an AI-generated review of a simulated (paper trading) portfolio.",
+              "It is not financial advice."]
+
+    body = "\n".join(lines)
+    filename = f"portfolio_review_{review_id}.txt"
+    return app.response_class(
+        body,
+        mimetype="text/plain",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
 
 
 @app.route("/buy", methods=["GET", "POST"])

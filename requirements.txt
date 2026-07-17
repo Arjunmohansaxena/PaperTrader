@@ -3,3 +3,4 @@ flask-socketio
 requests
 python-dotenv
 websocket-client
+yfinance

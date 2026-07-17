@@ -1527,3 +1527,100 @@ a:hover {
     font-size: 0.7rem;
     color: var(--text-muted);
 }
+
+/* AI Portfolio Review */
+.ai-review-disclaimer {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+}
+
+.ai-review-empty,
+.ai-review-error {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    padding: 1rem 0;
+}
+
+.ai-review-error {
+    color: var(--accent-red);
+}
+
+.ai-review-meta {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+}
+
+.ai-review-section {
+    margin-bottom: 1.1rem;
+}
+
+.ai-review-section:last-child {
+    margin-bottom: 0;
+}
+
+.ai-review-section h4 {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    font-weight: 600;
+    margin-bottom: 0.4rem;
+}
+
+.ai-review-section p {
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
+.ai-review-section ul {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.ai-review-section li {
+    font-size: 0.9rem;
+    line-height: 1.5;
+    padding-left: 0.9rem;
+    position: relative;
+}
+
+.ai-review-section li::before {
+    content: "—";
+    position: absolute;
+    left: 0;
+    color: var(--text-muted);
+}
+
+.ai-review-none {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.ai-review-loading {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 0.5rem 0;
+}
+
+.ai-review-skeleton-line {
+    height: 12px;
+    border-radius: 4px;
+    background: linear-gradient(90deg, var(--bg-card-hover) 25%, #1a1a1a 50%, var(--bg-card-hover) 75%);
+    background-size: 200% 100%;
+    animation: ai-review-shimmer 1.4s infinite;
+}
+
+.ai-review-skeleton-line.short {
+    width: 60%;
+}
+
+@keyframes ai-review-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
