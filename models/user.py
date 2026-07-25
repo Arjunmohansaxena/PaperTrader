@@ -1,5 +1,4 @@
-import hashlib
-import os
+from werkzeug.security import generate_password_hash, check_password_hash
 
 
 class User:
@@ -11,11 +10,7 @@ class User:
 
     @staticmethod
     def hash_password(password: str) -> str:
-        salt = os.urandom(16).hex()
-        password_hash = hashlib.sha256((salt + password).encode("utf-8")).hexdigest()
-        return f"{salt}${password_hash}"
+        return generate_password_hash(password)
 
     def verify_password(self, password: str) -> bool:
-        salt, stored_hash = self.password_hash.split("$", 1)
-        computed_hash = hashlib.sha256((salt + password).encode("utf-8")).hexdigest()
-        return computed_hash == stored_hash
+        return check_password_hash(self.password_hash, password)

@@ -635,4 +635,4 @@ def api_company_history(symbol):
 if __name__ == "__main__":
     socketio.start_background_task(price_bootstrap_loop)
     FinnhubPriceStream(_collect_tracked_symbols, _emit_price_updates).start()
-    socketio.run(app, debug=True, allow_unsafe_werkzeug=True)
+    socketio.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True, allow_unsafe_werkzeug=True)
