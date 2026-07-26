@@ -26,6 +26,16 @@ class DatabaseManager:
         database_url = database_url or os.environ.get("DATABASE_URL", DEFAULT_DATABASE_URL)
         self._connection = psycopg2.connect(database_url)
         self._connection.autocommit = False
+        self._use_float_for_numeric()
+
+    def _use_float_for_numeric(self):
+        
+        dec2float = psycopg2.extensions.new_type(
+            psycopg2.extensions.DECIMAL.values,
+            "DEC2FLOAT",
+            lambda value, curs: float(value) if value is not None else None,
+        )
+        psycopg2.extensions.register_type(dec2float, self._connection)
 
     @staticmethod
     def _to_pg_placeholders(query: str) -> str:
