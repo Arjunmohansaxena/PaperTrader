@@ -12,11 +12,11 @@ class UserRepository:
         if self.get_by_username(username) is not None:
             raise ValueError(f"Username '{username}' is already taken.")
         new_user = User(username=username, email=email, password=password)
-        cursor = self.db_manager.execute(
-            "INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)",
+        row = self.db_manager.fetch_one(
+            "INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?) RETURNING user_id",
             (new_user.username, new_user.email, new_user.password_hash),
         )
-        new_user.user_id = cursor.lastrowid
+        new_user.user_id = row[0]
         return new_user
 
     def authenticate(self, user_credentials: str, password: str) -> User | None:

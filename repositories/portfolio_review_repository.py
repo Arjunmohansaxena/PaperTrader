@@ -17,11 +17,12 @@ class PortfolioReviewRepository:
             self.db_manager = DatabaseManager()
 
     def save(self, user_id: int, portfolio_value: float, review: dict) -> int:
-        cursor = self.db_manager.execute(
-            "INSERT INTO portfolio_reviews (user_id, portfolio_value, review_json) VALUES (?, ?, ?)",
+        row = self.db_manager.fetch_one(
+            "INSERT INTO portfolio_reviews (user_id, portfolio_value, review_json) VALUES (?, ?, ?) "
+            "RETURNING review_id",
             (user_id, portfolio_value, json.dumps(review)),
         )
-        return cursor.lastrowid
+        return row[0]
 
     def get_latest_by_user_id(self, user_id: int) -> dict | None:
         row = self.db_manager.fetch_one(
