@@ -9,11 +9,11 @@ class WatchlistRepository:
             self.db_manager = DatabaseManager()
 
     def create_watchlist(self, user_id: int, name: str) -> WatchList:
-        cursor = self.db_manager.execute(
-            "INSERT INTO watchlists (user_id, name) VALUES (?, ?)",
+        row = self.db_manager.fetch_one(
+            "INSERT INTO watchlists (user_id, name) VALUES (?, ?) RETURNING watch_list_id",
             (user_id, name),
         )
-        return WatchList(watch_list_id=cursor.lastrowid, user_id=user_id, name=name)
+        return WatchList(watch_list_id=row[0], user_id=user_id, name=name)
 
     def get_by_id(self, watch_list_id: int) -> WatchList | None:
         row = self.db_manager.fetch_one(
@@ -41,7 +41,8 @@ class WatchlistRepository:
         if not symbol:
             return
         self.db_manager.execute(
-            "INSERT OR IGNORE INTO watchlist_stocks (watch_list_id, stock_symbol) VALUES (?, ?)",
+            "INSERT INTO watchlist_stocks (watch_list_id, stock_symbol) VALUES (?, ?) "
+            "ON CONFLICT (watch_list_id, stock_symbol) DO NOTHING",
             (watch_list_id, symbol),
         )
 

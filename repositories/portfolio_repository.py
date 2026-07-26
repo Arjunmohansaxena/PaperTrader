@@ -12,7 +12,8 @@ class PortfolioRepository:
 
     def save(self, portfolio: Portfolio, user_id: int):
         self.db_manager.execute(
-            "INSERT OR IGNORE INTO users (user_id, username, email, password_hash, balance) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO users (user_id, username, email, password_hash, balance) VALUES (?, ?, ?, ?, ?) "
+            "ON CONFLICT (user_id) DO NOTHING",
             (user_id, f"user_{user_id}", f"user_{user_id}@example.com", "hash", portfolio.cash_balance),
         )
         self.db_manager.execute(
@@ -25,7 +26,9 @@ class PortfolioRepository:
         )
         for position in portfolio.positions.values():
             self.db_manager.execute(
-                "INSERT OR REPLACE INTO holdings (user_id, stock_name, quantity, avg_buy_price) VALUES (?, ?, ?, ?)",
+                "INSERT INTO holdings (user_id, stock_name, quantity, avg_buy_price) VALUES (?, ?, ?, ?) "
+                "ON CONFLICT (user_id, stock_name) DO UPDATE SET "
+                "quantity = EXCLUDED.quantity, avg_buy_price = EXCLUDED.avg_buy_price",
                 (user_id, position.symbol, position.quantity, position.avg_buy_price),
             )
 

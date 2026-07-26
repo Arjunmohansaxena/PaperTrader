@@ -1,24 +1,23 @@
 import os
-import tempfile
 import unittest
- 
+
 from database.db_manager import DatabaseManager
 from repositories.user_repository import UserRepository
- 
- 
+from tests.db_test_utils import drop_test_database, make_test_database_url
+
+
 class UserRepositoryTests(unittest.TestCase):
     def setUp(self):
-        self.temp_dir = tempfile.TemporaryDirectory()
-        db_path = os.path.join(self.temp_dir.name, "papertrader.db")
-        self.db_manager = DatabaseManager(db_path)
+        self.db_url = make_test_database_url()
+        self.db_manager = DatabaseManager(self.db_url)
         schema_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "database", "schema.sql")
         with open(schema_path) as schema_file:
             self.db_manager.executescript(schema_file.read())
         self.repository = UserRepository(self.db_manager)
- 
+
     def tearDown(self):
         self.db_manager.close()
-        self.temp_dir.cleanup()
+        drop_test_database(self.db_url)
  
     def test_create_user_assigns_an_id(self):
         user = self.repository.create_user("alice", "alice@example.com", "secret123")

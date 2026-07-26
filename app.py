@@ -29,7 +29,6 @@ from services.portfolio_metrics import get_portfolio_metrics, compute_portfolio_
 from utils.exceptions import AIReviewError, StockNotFoundError
 
 BASE_DIR = os.path.dirname(__file__)
-DB_PATH = os.path.join(BASE_DIR, "database", "PaperTrader.db")
 SCHEMA_PATH = os.path.join(BASE_DIR, "database", "schema.sql")
 STARTING_BALANCE = 100000.00
 
@@ -37,8 +36,7 @@ app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*")
 app.secret_key = os.environ.get("PAPERTRADER_SECRET_KEY", "dev-secret-key-change-me")
 
-os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-db_manager = DatabaseManager(DB_PATH)
+db_manager = DatabaseManager()
 with open(SCHEMA_PATH) as schema_file:
     db_manager.executescript(schema_file.read())
 atexit.register(db_manager.close)
@@ -635,4 +633,6 @@ def api_company_history(symbol):
 if __name__ == "__main__":
     socketio.start_background_task(price_bootstrap_loop)
     FinnhubPriceStream(_collect_tracked_symbols, _emit_price_updates).start()
-    socketio.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True, allow_unsafe_werkzeug=True)
+    port = int(os.environ.get("PORT", 5000))
+    debug_mode = os.environ.get("FLASK_DEBUG", "true").lower() == "true"
+    socketio.run(app, host="0.0.0.0", port=port, debug=debug_mode, allow_unsafe_werkzeug=True)

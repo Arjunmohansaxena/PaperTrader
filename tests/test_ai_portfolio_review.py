@@ -1,9 +1,9 @@
 import os
-import tempfile
 import unittest
 
 from database.db_manager import DatabaseManager
 from repositories.portfolio_review_repository import PortfolioReviewRepository
+from tests.db_test_utils import drop_test_database, make_test_database_url
 from services.ai_review_service import (
     _extract_json_text,
     _format_metrics_for_prompt,
@@ -112,12 +112,11 @@ class GenerateReviewGuardTests(unittest.TestCase):
 
 class PortfolioReviewRepositoryTests(unittest.TestCase):
     def test_save_and_retrieve_latest(self):
-        with tempfile.TemporaryDirectory() as temp_dir:
-            db_path = os.path.join(temp_dir, "papertrader.db")
-            schema_path = os.path.join(
-                os.path.dirname(os.path.dirname(__file__)), "database", "schema.sql"
-            )
-
+        db_path = make_test_database_url()
+        schema_path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), "database", "schema.sql"
+        )
+        try:
             with DatabaseManager(db_path) as db_manager:
                 with open(schema_path) as schema_file:
                     db_manager.executescript(schema_file.read())
@@ -144,14 +143,15 @@ class PortfolioReviewRepositoryTests(unittest.TestCase):
                 self.assertEqual(latest["review_id"], review_id)
                 self.assertEqual(latest["review"]["summary"], "Test summary")
                 self.assertEqual(latest["portfolio_value"], 100000.0)
+        finally:
+            drop_test_database(db_path)
 
     def test_history_returns_most_recent_first(self):
-        with tempfile.TemporaryDirectory() as temp_dir:
-            db_path = os.path.join(temp_dir, "papertrader.db")
-            schema_path = os.path.join(
-                os.path.dirname(os.path.dirname(__file__)), "database", "schema.sql"
-            )
-
+        db_path = make_test_database_url()
+        schema_path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), "database", "schema.sql"
+        )
+        try:
             with DatabaseManager(db_path) as db_manager:
                 with open(schema_path) as schema_file:
                     db_manager.executescript(schema_file.read())
@@ -172,6 +172,8 @@ class PortfolioReviewRepositoryTests(unittest.TestCase):
                 history = repo.get_history_by_user_id(1)
                 self.assertEqual(history[0]["review_id"], second_id)
                 self.assertEqual(history[1]["review_id"], first_id)
+        finally:
+            drop_test_database(db_path)
 
 
 if __name__ == "__main__":

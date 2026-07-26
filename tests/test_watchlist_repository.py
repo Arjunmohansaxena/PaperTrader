@@ -1,16 +1,15 @@
 import os
-import tempfile
 import unittest
- 
+
 from database.db_manager import DatabaseManager
 from repositories.watchlist_repository import WatchlistRepository
- 
- 
+from tests.db_test_utils import drop_test_database, make_test_database_url
+
+
 class WatchlistRepositoryTests(unittest.TestCase):
     def setUp(self):
-        self.temp_dir = tempfile.TemporaryDirectory()
-        db_path = os.path.join(self.temp_dir.name, "papertrader.db")
-        self.db_manager = DatabaseManager(db_path)
+        self.db_url = make_test_database_url()
+        self.db_manager = DatabaseManager(self.db_url)
         schema_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "database", "schema.sql")
         with open(schema_path) as schema_file:
             self.db_manager.executescript(schema_file.read())
@@ -19,10 +18,10 @@ class WatchlistRepositoryTests(unittest.TestCase):
             (1, "alice", "alice@example.com", "hash"),
         )
         self.repository = WatchlistRepository(self.db_manager)
- 
+
     def tearDown(self):
         self.db_manager.close()
-        self.temp_dir.cleanup()
+        drop_test_database(self.db_url)
  
     def test_create_watchlist_assigns_an_id(self):
         watchlist = self.repository.create_watchlist(user_id=1, name="Tech")
