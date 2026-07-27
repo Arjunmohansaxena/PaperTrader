@@ -20,6 +20,7 @@ from services.market_data_provider import (
     search_stock,
     get_company_profile,
     get_company_name,
+    get_display_name,
     get_historical_prices,
     get_market_news,
     get_company_news
@@ -157,6 +158,7 @@ def dashboard():
         rows.append(
             {
                 "symbol": symbol,
+                "name": get_display_name(symbol),
                 "quantity": position.quantity,
                 "avg_price": position.avg_buy_price,
                 "current_price": price,
@@ -171,6 +173,7 @@ def dashboard():
     # Get watchlists and recent transaction history
     watchlists = watchlist_repo.get_by_user_id(user.user_id)
     transactions = portfolio_repo.get_transaction_history(user.user_id)[:3]
+    company_names = {txn.symbol: get_display_name(txn.symbol) for txn in transactions}
 
     # Small news preview for the dashboard widget
     try:
@@ -186,6 +189,7 @@ def dashboard():
         total_value=total_value,
         watchlists=watchlists,
         transactions=transactions,
+        company_names=company_names,
         news_preview=news_preview,
     )
 
@@ -378,7 +382,8 @@ def sell():
 def history():
     user = current_user()
     transactions = portfolio_repo.get_transaction_history(user.user_id)
-    return render_template("history.html", transactions=transactions)
+    company_names = {txn.symbol: get_display_name(txn.symbol) for txn in transactions}
+    return render_template("history.html", transactions=transactions, company_names=company_names)
 
 @app.route("/api/search")
 @login_required
@@ -409,7 +414,7 @@ def watchlists_view():
             except Exception:
                 price = 0.0
                 live = False
-            stocks_data.append({"symbol": symbol, "price": price, "live": live})
+            stocks_data.append({"symbol": symbol, "name": get_display_name(symbol), "price": price, "live": live})
         watchlist_data.append({
             "watch_list_id": wl.watch_list_id,
             "name": wl.name,
@@ -515,7 +520,8 @@ def news():
     except Exception as exc:
         error = str(exc)
 
-    return render_template("news.html", articles=articles, symbol=symbol, error=error)
+    company_name = get_display_name(symbol) if symbol else None
+    return render_template("news.html", articles=articles, symbol=symbol, company_name=company_name, error=error)
 
 
 REST_BOOTSTRAP_INTERVAL_SECONDS = 60

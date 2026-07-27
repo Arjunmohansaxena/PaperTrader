@@ -73,7 +73,7 @@
                 <div class="mini-tx-row">
                     <div class="mini-tx-left">
                         <span class="mini-tx-type {{ txn.side }}">{{ txn.side|upper }}</span>
-                        <span class="mini-tx-symbol">{{ txn.symbol }}</span>
+                        <span class="mini-tx-symbol">{{ company_names.get(txn.symbol, txn.symbol) }}</span>
                     </div>
                     <div class="mini-tx-right">
                         <div class="mini-tx-total">${{ "%.2f"|format(txn.total_amount) }}</div>
@@ -121,8 +121,9 @@
                 <div class="holding-left">
                     <div class="holding-icon">{{ row.symbol[:2] }}</div>
                     <div class="holding-meta">
-                        <a href="{{ url_for('company_page', symbol=row.symbol) }}" class="holding-symbol-label">
-                            {{ row.symbol }}
+                        <a href="{{ url_for('company_page', symbol=row.symbol) }}" class="holding-symbol-label holdings-name-cell">
+                            {{ row.name }}
+                            <span class="holdings-symbol-tag mono">{{ row.symbol }}</span>
                             {% if not row.live %}
                             <span class="holding-stale-dot" title="Live price unavailable, displaying average buy price"></span>
                             {% endif %}

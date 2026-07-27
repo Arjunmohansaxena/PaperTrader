@@ -267,6 +267,34 @@ def get_company_name(symbol: str) -> str | None:
     return None
 
 
+# Company names rarely change, so a simple in-process cache avoids re-hitting
+# Finnhub's profile endpoint every time a ticker needs to be displayed.
+_display_name_cache: dict[str, str] = {}
+
+
+def get_display_name(symbol: str) -> str:
+    """Best-effort human-readable company name for `symbol`, for use anywhere
+    a ticker would otherwise be shown to the user. Prefers a live Finnhub
+    profile, falls back to the cached SEC ticker index, and finally falls
+    back to the raw symbol itself if no name can be found."""
+    symbol = symbol.strip().upper()
+    if symbol in _display_name_cache:
+        return _display_name_cache[symbol]
+
+    name = None
+    try:
+        name = get_company_profile(symbol).get("name")
+    except Exception:
+        pass
+
+    if not name:
+        name = get_company_name(symbol)
+
+    name = name or symbol
+    _display_name_cache[symbol] = name
+    return name
+
+
 HISTORY_RANGES = {
     "1D": ("1d", "5m"),
     "1W": ("5d", "30m"),

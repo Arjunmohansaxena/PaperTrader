@@ -4,7 +4,7 @@
 {% block content %}
 
 <div class="dashboard-title-row">
-    <h1>{% if symbol %}News: {{ symbol }}{% else %}Market News{% endif %}</h1>
+    <h1>{% if symbol %}News: {{ company_name or symbol }}{% else %}Market News{% endif %}</h1>
     <div class="btn-group">
         <form action="{{ url_for('news') }}" method="get" class="top-search-form" style="min-width: 220px;">
             <svg class="search-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -39,7 +39,7 @@
         </svg>
     </div>
     <h3 class="empty-title">No news found</h3>
-    <p class="empty-desc">{% if symbol %}There's no recent coverage for {{ symbol }}.{% else %}Nothing to show right now — check back later.{% endif %}</p>
+    <p class="empty-desc">{% if symbol %}There's no recent coverage for {{ company_name or symbol }}.{% else %}Nothing to show right now — check back later.{% endif %}</p>
 </div>
 {% else %}
 <div class="news-grid">
