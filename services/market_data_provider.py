@@ -1,6 +1,7 @@
 import difflib
 import json
 import os
+import threading
 import time
 from datetime import datetime, timedelta
 import yfinance as yf
@@ -23,10 +24,13 @@ SEC_CONTACT_EMAIL = os.getenv("SEC_CONTACT_EMAIL", "unset-contact@example.com")
 _ticker_index = None
 
 
-def get_stock_quote(symbol: str) -> dict:
-    """Returns Finnhub's full quote payload for `symbol`: current price (c),
-    change (d), percent change (dp), open (o), high (h), low (l), and
-    previous close (pc). Raises StockNotFoundError if unavailable."""
+def _fetch_stock_quote(symbol: str) -> dict:
+    """Hits Finnhub directly for `symbol`'s live quote payload: current
+    price (c), change (d), percent change (dp), open (o), high (h), low (l),
+    and previous close (pc). Raises StockNotFoundError if unavailable.
+
+    Uncached — call get_stock_quote() instead unless you specifically need
+    to bypass the cache (e.g. to force a fresh read)."""
     if not FINNHUB_API_KEY:
         raise StockNotFoundError("FINNHUB_API_KEY is not set; cannot fetch a live price.")
 
@@ -44,6 +48,39 @@ def get_stock_quote(symbol: str) -> dict:
         raise StockNotFoundError(f"No price found for {symbol}")
 
     return data
+
+
+# A quote's price data goes stale within seconds during market hours, but
+# the dashboard, watchlists, and company page can each trigger a call per
+# holding on every single page load. A short TTL cache turns "N holdings on
+# screen = N Finnhub calls per load" into "N Finnhub calls per 10 seconds,
+# no matter how many times the page is refreshed" — see README for the
+# reasoning behind the chosen TTL and why this isn't Redis.
+_quote_cache: dict[str, tuple[dict, float]] = {}
+_quote_cache_lock = threading.Lock()
+QUOTE_CACHE_TTL_SECONDS = 10
+
+
+def get_stock_quote(symbol: str) -> dict:
+    """Returns Finnhub's full quote payload for `symbol` (see
+    _fetch_stock_quote for the shape), served from an in-process cache when
+    a fresh-enough copy exists. Failed lookups are never cached, so a
+    symbol that's temporarily unavailable isn't "stuck" failing for the
+    rest of the TTL window."""
+    symbol = symbol.strip().upper()
+    now = time.time()
+
+    with _quote_cache_lock:
+        cached = _quote_cache.get(symbol)
+        if cached is not None and now - cached[1] < QUOTE_CACHE_TTL_SECONDS:
+            return cached[0]
+
+    quote = _fetch_stock_quote(symbol)
+
+    with _quote_cache_lock:
+        _quote_cache[symbol] = (quote, now)
+
+    return quote
 
 
 def get_stock_price(symbol: str) -> float:
