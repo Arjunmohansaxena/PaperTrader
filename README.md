@@ -2,11 +2,11 @@
 
 > A production-ready paper trading platform built with Flask, PostgreSQL, WebSockets, and Google Gemini, enabling users to simulate stock trading using live market data in a risk-free environment.
 
-[![Python](...)](...)
-[![Flask](...)](...)
-[![PostgreSQL](...)](...)
-[![Docker](...)](...)
-[![MIT License](...)](...)
+![Python](https://img.shields.io/badge/Python-3.12-blue?logo=python)
+![Flask](https://img.shields.io/badge/Flask-3.1-black?logo=flask)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon-336791?logo=postgresql)
+![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker)
+![License](https://img.shields.io/badge/License-MIT-green)
 
 🌐 **Live Demo:** https://papertrader-8ma5.onrender.com
 
@@ -59,7 +59,7 @@
 
 ### News
 
-![News](images/working/Screenshot%20from%202026-07-28%2020-00-11.png)
+![News](images/working/Screenshot%from%2026-07-28%21-00-11.png)
 
 ---
 
@@ -73,7 +73,7 @@
 
 ### Paper Trading
 
-- Buy and sell stocks
+- Buy and sell stocks at live or manually entered prices
 - Holdings management
 - Transaction history
 - Cash balance tracking
@@ -82,20 +82,35 @@
 
 - Live portfolio valuation
 - Profit/Loss tracking
-- Holdings overview
+- Holdings overview with company-name-first display (see below)
 
 ### Market Data
 
-- Live stock prices
+- Live stock prices, backed by a TTL-cached quote layer (see [Design Decisions](#design-decisions))
 - Historical charts
 - Company profiles
-- Market news
-- Search with autocomplete
+- Market news, filterable by company
+- Search with autocomplete (ticker or company name)
+
+### Human-Readable Identity, Everywhere
+
+Tickers are precise but not always meaningful at a glance. Every surface that
+references a stock — the dashboard, holdings table, watchlists, transaction
+history, company page, and news — resolves and displays the **company name**
+first, with the ticker shown as a secondary, muted tag rather than the
+primary label. Name resolution is centralized in a single shared helper
+(`get_display_name`) so the behavior is consistent across the entire app
+instead of being reimplemented per page.
 
 ### Watchlists
 
-- Multiple watchlists
-- Live monitoring
+- Multiple watchlists per user
+- Live monitoring of tracked symbols
+- **One-click "add to watchlist" from the company page** — a single dropdown
+  lists only the watchlists a stock isn't already in, so adding it is a
+  one-select-one-click action instead of hunting through a list of buttons.
+  Watchlist actions taken from the company page redirect back to that same
+  page instead of bouncing the user away, so context is never lost mid-task.
 
 ### AI Portfolio Analysis
 
@@ -105,7 +120,11 @@
 
 ### Real-Time Updates
 
-- WebSocket-based portfolio synchronization
+- WebSocket-based, low-latency price and portfolio synchronization
+- A single unified ingestion point (`_emit_price_updates`) handles both the
+  live WebSocket feed and a REST fallback loop, so every downstream consumer
+  (UI, caching, future order matching) sees one consistent stream regardless
+  of where a given price update originated
 
 ---
 
@@ -221,12 +240,43 @@ python app.py
 
 ## Design Decisions
 
-- Layered architecture separates presentation, business logic, and data access.
-- Repository pattern isolates database operations.
-- WebSockets provide real-time portfolio updates.
-- TTL caching minimizes redundant external API calls.
-- PostgreSQL provides reliable cloud-hosted persistence.
-- Google Gemini generates AI-powered portfolio reviews.
+- **Layered architecture** separates presentation (routes/templates),
+  business logic (services/models), and data access (repositories), so each
+  layer can be reasoned about and tested independently.
+- **Repository pattern** isolates every SQL statement behind a small,
+  purpose-built class per domain object (users, portfolios, watchlists,
+  reviews), keeping route handlers free of raw database code.
+- **Centralized, cached identity resolution.** Company-name lookups
+  (`get_display_name`) are resolved once behind a shared in-process cache
+  rather than being fetched or hand-formatted per page — every view that
+  needs a human-readable name calls the same function and gets the same
+  answer, with no redundant API calls for a name that essentially never
+  changes.
+- **TTL-based caching for live market data.** Live quote lookups
+  (`get_stock_quote`) sit behind a short time-to-live (TTL) cache rather
+  than either fetching on every call or caching indefinitely. A stock's
+  price changes constantly, but the dashboard, watchlists, and company page
+  can each trigger a lookup per holding on every single page load — without
+  a cache, a user with 15 holdings could trigger 15 real Finnhub calls per
+  refresh. A short TTL (10 seconds) caps that cost while keeping the
+  displayed price close enough to real time for a *viewing* use case (trade
+  execution still resolves a fresh price at the moment of the trade, not a
+  cached one). Failed lookups are deliberately never cached, so a
+  temporarily unavailable symbol retries on the very next request instead
+  of appearing "stuck" for the rest of the TTL window. The cache itself is a
+  thread-safe, in-process structure — the right tool for a single-process
+  deployment, with a documented upgrade path to a shared store like Redis
+  if the app ever scales to multiple instances behind a load balancer.
+- **WebSockets for real-time state**, funneled through one shared
+  `_emit_price_updates` entry point regardless of whether a tick originated
+  from the live Finnhub stream or the REST fallback loop, so every
+  consumer of price data sees a single consistent feed.
+- **PostgreSQL** for reliable, cloud-hosted persistence, with explicit
+  transaction boundaries used wherever a multi-statement write must
+  succeed or fail as a single atomic unit.
+- **Google Gemini** generates structured, disclaimer-bound AI portfolio
+  reviews — deliberately scoped to education and risk commentary rather
+  than explicit buy/sell recommendations.
 
 ---
 
@@ -245,13 +295,15 @@ https://papertrader-8ma5.onrender.com
 
 ## Roadmap
 
+- Limit and stop-loss orders, matched against live price ticks
 - Email verification
 - Password reset
 - REST API
 - Multi-factor authentication (MFA)
 - Export portfolio reports
-- Portfolio analytics dashboard
+- Portfolio analytics dashboard (benchmarking, volatility, drawdown)
 - AI review history
+- Rate limiting on authentication and API routes
 - Mobile responsiveness improvements
 
 ---
