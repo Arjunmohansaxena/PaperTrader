@@ -12,48 +12,80 @@
 
 ---
 
+## Table of Contents
+
+- [Screenshots](#screenshots)
+- [Features](#features)
+- [Technology Stack](#technology-stack)
+- [Architecture](#architecture)
+- [Database Schema](#database-schema)
+- [Development Journey](#development-journey)
+- [Project Structure](#project-structure)
+- [Installation](#installation)
+- [Design Decisions](#design-decisions)
+- [Deployment](#deployment)
+- [Roadmap](#roadmap)
+- [Testing](#testing)
+- [License](#license)
+- [Author](#author)
+
+---
+
 ## Screenshots
 
 ### Dashboard
-(images/working/Screenshot from 2026-07-28 20-58-42.png)
+
+![Dashboard](images/working/Screenshot%20from%202026-07-28%2020-58-42.png)
 
 ### Portfolio
-(images/working/Screenshot from 2026-07-28 20-59-09.png)
-(images/working/Screenshot from 2026-07-28 00-08-00.png)
-(images/working/Screenshot from 2026-07-28 20-59-22.png)
 
-### AI review
-(images/working/Screenshot from 2026-07-28 20-59-45.png)
+![Portfolio](images/working/Screenshot%20from%202026-07-28%2020-59-09.png)
 
-### Transaction 
-(images/working/Screenshot from 2026-07-28 20-59-56.png)
+![Portfolio Holdings](images/working/Screenshot%20from%202026-07-28%2000-08-00.png)
+
+![Portfolio Summary](images/working/Screenshot%20from%202026-07-28%2020-59-22.png)
+
+### AI Review
+
+![AI Review](images/working/Screenshot%20from%202026-07-28%2020-59-45.png)
+
+### Transactions
+
+![Transactions](images/working/Screenshot%20from%202026-07-28%2020-59-56.png)
 
 ### Company Page
-(images/working/Screenshot from 2026-07-28 21-00-56.png)
+
+![Company Page](images/working/Screenshot%20from%202026-07-28%2021-00-56.png)
 
 ### News
-(images/working/Screenshot from 2026-07-28 21-00-11.png)
 
+![News](images/working/Screenshot%20from%202026-07-28%2020-00-11.png)
+
+---
 
 ## Features
 
 ### Authentication
-- Secure registration and login
+
+- Secure user registration and login
 - Password hashing
 - Session management
 
 ### Paper Trading
+
 - Buy and sell stocks
 - Holdings management
 - Transaction history
 - Cash balance tracking
 
 ### Portfolio
-- Live valuation
+
+- Live portfolio valuation
 - Profit/Loss tracking
 - Holdings overview
 
 ### Market Data
+
 - Live stock prices
 - Historical charts
 - Company profiles
@@ -61,15 +93,18 @@
 - Search with autocomplete
 
 ### Watchlists
+
 - Multiple watchlists
 - Live monitoring
 
 ### AI Portfolio Analysis
+
 - Portfolio evaluation
 - Risk assessment
-- Investment insights
+- Investment insights powered by Google Gemini
 
 ### Real-Time Updates
+
 - WebSocket-based portfolio synchronization
 
 ---
@@ -95,19 +130,19 @@
 
 ## Architecture
 
-(images/Screenshot from 2026-07-28 22-11-42.png)
+![Architecture](images/Screenshot%20from%202026-07-28%2022-11-42.png)
 
 ---
 
 ## Database Schema
 
-(images/Screenshot from 2026-07-28 21-52-46.png)
+![Database Schema](images/Screenshot%20from%202026-07-28%2021-52-46.png)
 
 ---
 
 ## Development Journey
 
-(images/Screenshot from 2026-07-28 22-02-27.png)
+![Development Journey](images/Screenshot%20from%202026-07-28%2022-02-27.png)
 
 ---
 
@@ -134,37 +169,40 @@ PaperTrader/
 
 ## Installation
 
+Clone the repository.
+
 ```bash
 git clone https://github.com/Arjunmohansaxena/PaperTrader.git
-
 cd PaperTrader
 ```
 
-Create a virtual environment
+Create a virtual environment.
 
 ```bash
 python -m venv .venv
 ```
 
-Linux/macOS
+Activate the environment.
+
+**Linux / macOS**
 
 ```bash
 source .venv/bin/activate
 ```
 
-Windows
+**Windows**
 
 ```bash
 .venv\Scripts\activate
 ```
 
-Install dependencies
+Install dependencies.
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Create a `.env`
+Create a `.env` file.
 
 ```env
 DATABASE_URL=
@@ -173,7 +211,7 @@ GEMINI_API_KEY=
 SECRET_KEY=
 ```
 
-Run
+Run the application.
 
 ```bash
 python app.py
@@ -199,7 +237,7 @@ python app.py
 - PostgreSQL hosted on Neon
 - Continuous Integration using GitHub Actions
 
-Production
+### Production
 
 https://papertrader-8ma5.onrender.com
 
@@ -210,10 +248,10 @@ https://papertrader-8ma5.onrender.com
 - Email verification
 - Password reset
 - REST API
-- MFA
+- Multi-factor authentication (MFA)
 - Export portfolio reports
 - Portfolio analytics dashboard
-- AI history
+- AI review history
 - Mobile responsiveness improvements
 
 ---
@@ -236,5 +274,4 @@ MIT License
 
 **Arjun Mohan Saxena**
 
-GitHub:
-https://github.com/Arjunmohansaxena
+GitHub: https://github.com/Arjunmohansaxena
