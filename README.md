@@ -1,107 +1,117 @@
 # PaperTrader
 
-PaperTrader is a full-stack paper trading platform built with **Python**, **Flask**, and **PostgreSQL** that enables users to simulate stock trading using live market data in a risk-free environment.
+> A production-ready paper trading platform built with Flask, PostgreSQL, WebSockets, and Google Gemini, enabling users to simulate stock trading using live market data in a risk-free environment.
 
-The application provides portfolio management, real-time market updates, historical price visualization, watchlists, transaction tracking, and AI-powered portfolio analysis through a clean and responsive web interface.
+[![Python](...)](...)
+[![Flask](...)](...)
+[![PostgreSQL](...)](...)
+[![Docker](...)](...)
+[![MIT License](...)](...)
 
----
-
-# Live Application
-
-**Application:** https://papertrader-8ma5.onrender.com
-
----
-
-# Features
-
-## Authentication
-
-* Secure user registration and login
-* Password hashing and session management
-* Protected application routes
-
-## Paper Trading
-
-* Buy and sell stocks with virtual capital
-* Automatic portfolio updates
-* Cash balance management
-* Complete transaction history
-
-## Portfolio Management
-
-* Real-time portfolio valuation
-* Unrealized and realized profit/loss tracking
-* Holdings overview
-* Portfolio performance metrics
-
-## Market Data
-
-* Live stock prices
-* Historical price charts
-* Company profiles
-* Market news
-* Stock search with autocomplete
-
-## Watchlists
-
-* Create and manage personalized watchlists
-* Monitor selected stocks in real time
-
-## AI Portfolio Analysis
-
-* Portfolio evaluation using Google Gemini
-* Investment observations
-* Risk assessment
-* Portfolio summaries
-
-## Real-Time Updates
-
-* WebSocket-based portfolio updates
-* Live market price synchronization
+🌐 **Live Demo:** https://papertrader-8ma5.onrender.com
 
 ---
 
-# Technology Stack
+## Screenshots
 
-| Category                | Technology            |
-| ----------------------- | --------------------- |
-| Language                | Python                |
-| Backend                 | Flask                 |
-| Frontend                | HTML, CSS, JavaScript |
-| Database                | PostgreSQL (Neon)     |
-| Database Driver         | psycopg               |
-| Authentication          | Flask Sessions        |
-| Real-Time Communication | Flask-SocketIO        |
-| Market Data             | Finnhub API           |
-| Historical Data         | yfinance              |
-| AI Integration          | Google Gemini         |
-| Deployment              | Render                |
+### Dashboard
+(images/working/Screenshot from 2026-07-28 20-58-42.png)
+
+### Portfolio
+(images/working/Screenshot from 2026-07-28 20-59-09.png)
+(images/working/Screenshot from 2026-07-28 00-08-00.png)
+(images/working/Screenshot from 2026-07-28 20-59-22.png)
+
+### AI review
+(images/working/Screenshot from 2026-07-28 20-59-45.png)
+
+### Transaction 
+(images/working/Screenshot from 2026-07-28 20-59-56.png)
+
+### Company Page
+(images/working/Screenshot from 2026-07-28 21-00-56.png)
+
+### News
+(images/working/Screenshot from 2026-07-28 21-00-11.png)
+
+
+## Features
+
+### Authentication
+- Secure registration and login
+- Password hashing
+- Session management
+
+### Paper Trading
+- Buy and sell stocks
+- Holdings management
+- Transaction history
+- Cash balance tracking
+
+### Portfolio
+- Live valuation
+- Profit/Loss tracking
+- Holdings overview
+
+### Market Data
+- Live stock prices
+- Historical charts
+- Company profiles
+- Market news
+- Search with autocomplete
+
+### Watchlists
+- Multiple watchlists
+- Live monitoring
+
+### AI Portfolio Analysis
+- Portfolio evaluation
+- Risk assessment
+- Investment insights
+
+### Real-Time Updates
+- WebSocket-based portfolio synchronization
 
 ---
 
-# Architecture
+## Technology Stack
 
-The application follows a layered architecture to separate presentation, business logic, and data access.
-
-```
-Client
-   │
-   ▼
-Flask Routes
-   │
-   ▼
-Service Layer
-   │
-   ▼
-Repository Layer
-   │
-   ▼
-Neon PostgreSQL
-```
+| Category | Technology |
+|----------|------------|
+| Backend | Flask |
+| Language | Python |
+| Frontend | HTML, CSS, JavaScript |
+| Database | PostgreSQL (Neon) |
+| ORM / Driver | psycopg |
+| Authentication | Flask Sessions |
+| Real-Time | Flask-SocketIO |
+| Market Data | Finnhub |
+| Historical Data | yfinance |
+| AI | Google Gemini |
+| Deployment | Render |
+| Containerization | Docker |
 
 ---
 
-# Project Structure
+## Architecture
+
+(images/Screenshot from 2026-07-28 22-11-42.png)
+
+---
+
+## Database Schema
+
+(images/Screenshot from 2026-07-28 21-52-46.png)
+
+---
+
+## Development Journey
+
+(images/Screenshot from 2026-07-28 22-02-27.png)
+
+---
+
+## Project Structure
 
 ```text
 PaperTrader/
@@ -122,9 +132,7 @@ PaperTrader/
 
 ---
 
-# Installation
-
-## Clone the repository
+## Installation
 
 ```bash
 git clone https://github.com/Arjunmohansaxena/PaperTrader.git
@@ -132,104 +140,85 @@ git clone https://github.com/Arjunmohansaxena/PaperTrader.git
 cd PaperTrader
 ```
 
-## Create a virtual environment
+Create a virtual environment
 
 ```bash
 python -m venv .venv
 ```
 
-### Linux/macOS
+Linux/macOS
 
 ```bash
 source .venv/bin/activate
 ```
 
-### Windows
+Windows
 
 ```bash
 .venv\Scripts\activate
 ```
 
-## Install dependencies
+Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## Configure Environment Variables
-
-Create a `.env` file in the project root.
+Create a `.env`
 
 ```env
-DATABASE_URL=your_neon_database_url
-FINNHUB_API_KEY=your_finnhub_api_key
-GEMINI_API_KEY=your_gemini_api_key
-SECRET_KEY=your_secret_key
+DATABASE_URL=
+FINNHUB_API_KEY=
+GEMINI_API_KEY=
+SECRET_KEY=
 ```
 
-## Start the application
+Run
 
 ```bash
 python app.py
 ```
 
-The application will be available at:
+---
 
-```
-http://localhost:5000
-```
+## Design Decisions
+
+- Layered architecture separates presentation, business logic, and data access.
+- Repository pattern isolates database operations.
+- WebSockets provide real-time portfolio updates.
+- TTL caching minimizes redundant external API calls.
+- PostgreSQL provides reliable cloud-hosted persistence.
+- Google Gemini generates AI-powered portfolio reviews.
 
 ---
 
-# Database
+## Deployment
 
-The application uses **Neon PostgreSQL** as its primary database.
+- Dockerized application
+- Automated deployment to Render
+- PostgreSQL hosted on Neon
+- Continuous Integration using GitHub Actions
 
-The database stores:
-
-* User accounts
-* Portfolio holdings
-* Transactions
-* Watchlists
-* Portfolio reviews
-
----
-
-# External Services
-
-### Finnhub
-
-* Live stock prices
-* Company information
-* Market news
-* Real-time market data
-
-### Yahoo Finance (yfinance)
-
-* Historical price data
-* Chart generation
-
-### Google Gemini
-
-* AI-powered portfolio analysis
-* Portfolio recommendations
-* Risk evaluation
-
----
-
-# Deployment
-
-The application is deployed on **Render** with **Neon PostgreSQL** as the managed cloud database.
-
-Production URL:
+Production
 
 https://papertrader-8ma5.onrender.com
 
 ---
 
-# Testing
+## Roadmap
 
-Execute the test suite using:
+- Email verification
+- Password reset
+- REST API
+- MFA
+- Export portfolio reports
+- Portfolio analytics dashboard
+- AI history
+- Mobile responsiveness improvements
+
+---
+
+## Testing
 
 ```bash
 pytest
@@ -237,30 +226,15 @@ pytest
 
 ---
 
-# Roadmap
+## License
 
-Future enhancements include:
-
-* Email verification
-* Password reset
-* Price alerts and notifications
-* Portfolio analytics dashboard
-* REST API
-* Multi-factor authentication
-* Improved mobile responsiveness
-* Export portfolio reports
-* AI analysis history
+MIT License
 
 ---
 
-# License
-
-This project is licensed under the MIT License.
-
----
-
-# Author
+## Author
 
 **Arjun Mohan Saxena**
 
-GitHub: https://github.com/Arjunmohansaxena
+GitHub:
+https://github.com/Arjunmohansaxena
