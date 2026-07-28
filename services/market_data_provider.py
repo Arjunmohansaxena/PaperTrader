@@ -58,7 +58,7 @@ def _fetch_stock_quote(symbol: str) -> dict:
 # reasoning behind the chosen TTL and why this isn't Redis.
 _quote_cache: dict[str, tuple[dict, float]] = {}
 _quote_cache_lock = threading.Lock()
-QUOTE_CACHE_TTL_SECONDS = 10
+QUOTE_CACHE_TTL_SECONDS = 8
 
 
 def get_stock_quote(symbol: str) -> dict:
