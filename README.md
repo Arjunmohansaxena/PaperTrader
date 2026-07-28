@@ -57,10 +57,6 @@
 
 ![Company Page](images/working/Screenshot%20from%202026-07-28%2021-00-56.png)
 
-### News
-
-![News](images/working/Screenshot%from%2026-07-28%21-00-11.png)
-
 ---
 
 ## Features
