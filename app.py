@@ -328,6 +328,23 @@ def buy():
             # Placed here, executed later by the standalone worker process
             # (worker/worker.py) once the live price crosses limit_price --
             # this route never touches cash/holdings for a limit order.
+            portfolio = portfolio_repo.get_by_user_id(user.user_id)
+            pending_buy_cost = sum(
+                order.quantity * order.limit_price
+                for order in limit_order_repo.get_pending_by_symbol(symbol)
+                if order.user_id == user.user_id and order.side == "BUY"
+            )
+            available_cash = portfolio.cash_balance - pending_buy_cost
+            worst_case_cost = quantity * limit_price
+            if worst_case_cost > available_cash:
+                flash(
+                    f"Cannot place order: this would require ${worst_case_cost:,.2f}, but only "
+                    f"${available_cash:,.2f} is available after accounting for your other pending "
+                    "buy orders.",
+                    "error",
+                )
+                return render_template("buy.html", symbol=symbol, quantity=quantity_raw, order_type=order_type)
+
             limit_order_repo.create_order(user.user_id, symbol, "buy", quantity, limit_price)
             flash(
                 f"Limit order placed: buy {quantity} {symbol} at ${limit_price:.2f} or below. "
@@ -387,6 +404,23 @@ def sell():
 
             # Same reasoning as the buy route: the worker process owns
             # execution of this order, not this request.
+            portfolio = portfolio_repo.get_by_user_id(user.user_id)
+            position = portfolio.positions.get(symbol)
+            current_shares = position.quantity if position else 0
+            pending_sell_quantity = sum(
+                order.quantity
+                for order in limit_order_repo.get_pending_by_symbol(symbol)
+                if order.user_id == user.user_id and order.side == "SELL"
+            )
+            available_shares = current_shares - pending_sell_quantity
+            if quantity > available_shares:
+                flash(
+                    f"Cannot place order: you have {available_shares} share(s) of {symbol} "
+                    "available after accounting for your other pending sell orders.",
+                    "error",
+                )
+                return render_template("sell.html", symbol=symbol, quantity=quantity_raw, order_type=order_type)
+
             limit_order_repo.create_order(user.user_id, symbol, "sell", quantity, limit_price)
             flash(
                 f"Limit order placed: sell {quantity} {symbol} at ${limit_price:.2f} or above. "
