@@ -450,6 +450,30 @@ def sell():
     return render_template("sell.html")
 
 
+@app.route("/account/delete", methods=["GET", "POST"])
+@login_required
+def delete_account():
+    user = current_user()
+
+    if request.method == "POST":
+        password = request.form.get("password", "")
+
+        if not password:
+            flash("Enter your password to confirm account deletion.", "error")
+            return render_template("delete_account.html", user=user)
+
+        if not user_repo.authenticate(user.username, password):
+            flash("Incorrect password. Your account was not deleted.", "error")
+            return render_template("delete_account.html", user=user)
+
+        user_repo.delete_user(user.user_id)
+        session.clear()
+        flash("Your account and all associated data have been permanently deleted.", "success")
+        return redirect(url_for("login"))
+
+    return render_template("delete_account.html", user=user)
+
+
 @app.route("/history")
 @login_required
 def history():
