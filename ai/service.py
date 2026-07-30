@@ -15,6 +15,7 @@ user for this request.
 """
 
 import os
+import time
 
 import requests
 from dotenv import load_dotenv
@@ -48,6 +49,11 @@ def _build_initial_contents(history: list[dict], message: str) -> list[dict]:
     return contents
 
 
+RETRYABLE_STATUS_CODES = {429, 503}
+MAX_RETRIES = 2
+RETRY_BACKOFF_SECONDS = 2
+
+
 def _call_gemini(contents: list[dict]) -> dict:
     payload = {
         "system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]},
@@ -55,17 +61,53 @@ def _call_gemini(contents: list[dict]) -> dict:
         "tools": TOOL_DECLARATIONS,
         "generationConfig": {"temperature": 0.2},
     }
-    try:
-        response = requests.post(
-            GEMINI_URL,
-            headers={"x-goog-api-key": GEMINI_API_KEY, "Content-Type": "application/json"},
-            json=payload,
-            timeout=REQUEST_TIMEOUT_SECONDS,
-        )
-        response.raise_for_status()
-        return response.json()
-    except requests.RequestException as exc:
-        raise AICopilotError(f"Could not reach the AI service: {exc}") from exc
+
+    last_exc = None
+    for attempt in range(MAX_RETRIES + 1):
+        try:
+            response = requests.post(
+                GEMINI_URL,
+                headers={"x-goog-api-key": GEMINI_API_KEY, "Content-Type": "application/json"},
+                json=payload,
+                timeout=REQUEST_TIMEOUT_SECONDS,
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.HTTPError as exc:
+            last_exc = exc
+            status = exc.response.status_code if exc.response is not None else None
+            if status in RETRYABLE_STATUS_CODES and attempt < MAX_RETRIES:
+                # A brief backoff smooths over short-lived rate-limit blips
+                # (a burst of requests hitting a per-minute cap) without
+                # making the user manually retry. It does nothing for a
+                # genuinely exhausted daily/project quota -- that still
+                # surfaces as a clear error below instead of hanging.
+                time.sleep(RETRY_BACKOFF_SECONDS * (attempt + 1))
+                continue
+            break
+        except requests.RequestException as exc:
+            raise AICopilotError(f"Could not reach the AI service: {exc}") from exc
+
+    exc = last_exc
+    status = exc.response.status_code if exc.response is not None else None
+    detail = ""
+    if exc.response is not None:
+        try:
+            detail = exc.response.json().get("error", {}).get("message", "")
+        except ValueError:
+            detail = exc.response.text
+
+    if status == 429:
+        raise AICopilotError(
+            "The AI Copilot is temporarily rate-limited or has hit its usage quota. "
+            "Please wait a bit and try again, or check the project's Gemini API quota."
+            + (f" ({detail})" if detail else "")
+        ) from exc
+
+    message = f"Could not reach the AI service: {exc}"
+    if detail:
+        message += f" -- {detail}"
+    raise AICopilotError(message) from exc
 
 
 def _extract_parts(data: dict) -> list[dict]:
@@ -107,7 +149,9 @@ def ask(user_id: int, portfolio_repo, watchlist_repo, message: str, history: lis
             return reply_text
 
         # Echo the model's own function-call turn back, then supply the
-        # tool result(s) as a "function" role turn, and let it continue.
+        # tool result(s) as a "user" turn carrying functionResponse parts
+        # (Gemini's contents schema only supports "user"/"model" roles --
+        # there is no "function" role), and let it continue.
         contents.append({"role": "model", "parts": [{"functionCall": fc} for fc in function_calls]})
 
         function_response_parts = []
