@@ -90,6 +90,12 @@
                     </svg>
                     News
                 </a>
+                <a href="{{ url_for('chat_view') }}" class="nav-item {{ 'active' if request.endpoint == 'chat_view' }}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    AI Copilot
+                </a>
             </nav>
 
             <div class="sidebar-footer">
@@ -120,6 +126,7 @@
                             {% elif request.endpoint == 'history' %}Ledger
                             {% elif request.endpoint == 'watchlists_view' %}Watchlists
                             {% elif request.endpoint == 'news' %}News
+                            {% elif request.endpoint == 'chat_view' %}AI Copilot
                             {% else %}{{ request.endpoint|capitalize }}
                             {% endif %}
                         </span>
