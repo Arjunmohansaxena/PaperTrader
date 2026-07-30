@@ -6,6 +6,55 @@
     <a href="{{ url_for('buy') }}" class="btn btn-primary">New Trade</a>
 </div>
 
+{% if pending_orders %}
+<div class="vercel-table-container" style="margin-bottom: 1.5rem;">
+    <table class="vercel-table">
+        <thead>
+            <tr>
+                <th colspan="6" style="font-weight: 600;">Pending Limit Orders</th>
+            </tr>
+            <tr>
+                <th>Placed</th>
+                <th>Side</th>
+                <th>Company</th>
+                <th style="text-align: right;">Quantity</th>
+                <th style="text-align: right;">Limit Price</th>
+                <th style="text-align: right;">Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for order in pending_orders %}
+            <tr>
+                <td class="mono" style="color: var(--text-secondary);">
+                    {{ order.created_at|string|truncate(19, True, "") }}
+                </td>
+                <td>
+                    <span class="status-pill {{ 'buy' if order.side == 'buy' else 'sell' }}">
+                        {{ 'BUY' if order.side == 'buy' else 'SELL' }}
+                    </span>
+                </td>
+                <td style="font-weight: 600;" class="holdings-name-cell">
+                    {{ company_names.get(order.symbol, order.symbol) }}
+                    <span class="holdings-symbol-tag mono">{{ order.symbol }}</span>
+                </td>
+                <td class="mono" style="text-align: right;">{{ order.quantity }}</td>
+                <td class="mono" style="text-align: right;">${{ "%.2f"|format(order.limit_price) }}</td>
+                <td style="text-align: right;">
+                    <form method="post" action="{{ url_for('cancel_limit_order', order_id=order.order_id) }}" style="display: inline;">
+                        <button type="submit" class="btn btn-secondary" style="padding: 0.25rem 0.65rem; font-size: 0.75rem;">Cancel</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <p style="font-size: 0.75rem; color: var(--text-secondary); padding: 0.5rem 0.75rem;">
+        These execute automatically once the live price crosses your limit — a background
+        worker checks prices every few seconds, so you don't need to keep this page open.
+    </p>
+</div>
+{% endif %}
+
 {% if transactions %}
 <div class="vercel-table-container">
     <table class="vercel-table">

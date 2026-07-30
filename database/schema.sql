@@ -61,3 +61,30 @@ CREATE TABLE IF NOT EXISTS portfolio_reviews (
     review_json TEXT NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 );
+
+-- Limit Orders: pending buy/sell instructions the background worker
+-- monitors and executes once the market price crosses the limit price.
+-- The worker (worker/worker.py) and the Flask app both read/write this
+-- table -- Postgres is the single shared source of truth between them.
+CREATE TABLE IF NOT EXISTS limit_orders (
+    order_id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    stock_name TEXT NOT NULL,
+    side TEXT NOT NULL CHECK (side IN ('BUY', 'SELL')),
+    quantity INTEGER NOT NULL CHECK (quantity > 0),
+    limit_price NUMERIC(15,2) NOT NULL CHECK (limit_price > 0),
+    status TEXT NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'EXECUTED', 'CANCELLED', 'FAILED')),
+    executed_price NUMERIC(15,2),
+    failure_reason TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    executed_at TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+
+-- The worker's main query per cycle is "which symbols have pending orders,
+-- and which orders are pending for symbol X" -- this partial index keeps
+-- both cheap without needing an in-memory heap (a plain indexed query is
+-- enough at this scale; see worker context doc's DSA section).
+CREATE INDEX IF NOT EXISTS idx_limit_orders_pending_symbol
+    ON limit_orders (stock_name)
+    WHERE status = 'PENDING';

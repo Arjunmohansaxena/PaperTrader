@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block title %}AI Copilot — PaperTrader{% endblock %}
+
+{% block content %}
+
+<div class="dashboard-title-row">
+    <h1>AI Copilot</h1>
+</div>
+
+<div class="card chat-card">
+    <div id="chat-messages" class="chat-messages">
+        <div class="chat-message chat-message-assistant">
+            <div class="chat-bubble">
+                Hi! I can answer questions about your portfolio, holdings, transactions, and
+                watchlist, look up live stock prices, company info, and news, or explain general
+                investing concepts. What would you like to know?
+            </div>
+        </div>
+    </div>
+
+    <form id="chat-form" class="chat-input-row">
+        <input
+            type="text"
+            id="chat-input"
+            class="form-control"
+            placeholder="Ask about your portfolio, a stock, or a concept..."
+            autocomplete="off"
+            maxlength="1000"
+            required>
+        <button type="submit" class="btn btn-primary" id="chat-send-btn">Send</button>
+    </form>
+</div>
+
+<script>
+(function () {
+    const form = document.getElementById('chat-form');
+    const input = document.getElementById('chat-input');
+    const sendBtn = document.getElementById('chat-send-btn');
+    const messagesEl = document.getElementById('chat-messages');
+
+    // Client-side only; nothing is persisted server-side between requests.
+    const history = [];
+    const MAX_HISTORY_TURNS = 20;
+
+    function pushHistory(role, text) {
+        history.push({ role: role, content: text });
+        while (history.length > MAX_HISTORY_TURNS) {
+            history.shift();
+        }
+    }
+
+    function appendMessage(role, text) {
+        const row = document.createElement('div');
+        row.className = 'chat-message ' + (role === 'user' ? 'chat-message-user' : 'chat-message-assistant');
+
+        const bubble = document.createElement('div');
+        bubble.className = 'chat-bubble';
+        bubble.textContent = text;
+
+        row.appendChild(bubble);
+        messagesEl.appendChild(row);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+        return bubble;
+    }
+
+    function appendTyping() {
+        const row = document.createElement('div');
+        row.className = 'chat-message chat-message-assistant';
+        row.id = 'chat-typing-indicator';
+
+        const bubble = document.createElement('div');
+        bubble.className = 'chat-bubble chat-bubble-typing';
+        bubble.textContent = 'Thinking...';
+
+        row.appendChild(bubble);
+        messagesEl.appendChild(row);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function removeTyping() {
+        const typing = document.getElementById('chat-typing-indicator');
+        if (typing) {
+            typing.remove();
+        }
+    }
+
+    form.addEventListener('submit', async function (event) {
+        event.preventDefault();
+        const message = input.value.trim();
+        if (!message) {
+            return;
+        }
+
+        appendMessage('user', message);
+        input.value = '';
+        input.disabled = true;
+        sendBtn.disabled = true;
+        appendTyping();
+
+        try {
+            const response = await fetch('/api/ai/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: message, history: history })
+            });
+            const data = await response.json();
+
+            removeTyping();
+
+            if (!response.ok) {
+                appendMessage('assistant', data.error || 'Something went wrong. Please try again.');
+                return;
+            }
+
+            appendMessage('assistant', data.response);
+            pushHistory('user', message);
+            pushHistory('assistant', data.response);
+        } catch (err) {
+            removeTyping();
+            appendMessage('assistant', 'Could not reach the server. Please check your connection and try again.');
+        } finally {
+            input.disabled = false;
+            sendBtn.disabled = false;
+            input.focus();
+        }
+    });
+})();
+</script>
+
+{% endblock %}

@@ -1,9 +1,34 @@
 import os
+from contextlib import contextmanager
 
 import psycopg2
 import psycopg2.extensions
 
 DEFAULT_DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/papertrader"
+
+
+class _TransactionCursor:
+    """Thin wrapper handed to callers inside DatabaseManager.transaction():
+    same '?' placeholder convention as the rest of this class, but doesn't
+    commit after each call -- the outer transaction() context manager
+    commits (or rolls back) everything together when the block exits."""
+
+    def __init__(self, cursor, to_pg_placeholders):
+        self._cursor = cursor
+        self._to_pg_placeholders = to_pg_placeholders
+
+    def execute(self, query: str, params: tuple | None = None):
+        self._cursor.execute(self._to_pg_placeholders(query), params or ())
+        return self._cursor
+
+    def fetch_one(self, query: str, params: tuple | None = None):
+        self.execute(query, params)
+        row = self._cursor.fetchone()
+        return tuple(row) if row is not None else None
+
+    def fetch_all(self, query: str, params: tuple | None = None):
+        self.execute(query, params)
+        return [tuple(row) for row in self._cursor.fetchall()]
 
 
 class DatabaseManager:
@@ -47,8 +72,21 @@ class DatabaseManager:
 
     def execute(self, query: str, params: tuple | None = None):
         cursor = self._connection.cursor()
-        cursor.execute(self._to_pg_placeholders(query), params or ())
-        self._connection.commit()
+        try:
+            cursor.execute(self._to_pg_placeholders(query), params or ())
+            self._connection.commit()
+        except Exception:
+            # Without this rollback, Postgres leaves the connection in an
+            # aborted-transaction state after any failed query -- every
+            # subsequent query on this same connection would then fail with
+            # "current transaction is aborted", even after the original
+            # problem is gone. That's fatal for a long-running process like
+            # the worker: it holds one DatabaseManager/connection open across
+            # many cycles, and a single transient error (a deadlock, a
+            # momentary blip) would otherwise permanently break it instead
+            # of just failing that one query.
+            self._connection.rollback()
+            raise
         return cursor
 
     def fetch_one(self, query: str, params: tuple | None = None):
@@ -65,8 +103,12 @@ class DatabaseManager:
         # Unlike sqlite3, psycopg2's execute() can run a multi-statement
         # SQL string (e.g. a full schema.sql) in one call.
         cursor = self._connection.cursor()
-        cursor.execute(script)
-        self._connection.commit()
+        try:
+            cursor.execute(script)
+            self._connection.commit()
+        except Exception:
+            self._connection.rollback()
+            raise
 
     def ensure_column(self, table: str, column: str, ddl: str):
         """Add a column to an existing table if it's not already there.
@@ -76,8 +118,42 @@ class DatabaseManager:
         "duplicate column" error.
         """
         cursor = self._connection.cursor()
-        cursor.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {ddl}")
-        self._connection.commit()
+        try:
+            cursor.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {ddl}")
+            self._connection.commit()
+        except Exception:
+            self._connection.rollback()
+            raise
+
+    @contextmanager
+    def transaction(self):
+        """Context manager for a single atomic, multi-statement unit of
+        work: every statement run through the yielded cursor commits
+        together at the end, or rolls back together on any exception.
+
+        execute()/fetch_one()/fetch_all() each commit immediately after
+        their one statement, which is fine for simple single-row
+        read/writes but can't express "these N statements must all succeed
+        or none should" -- e.g. the background worker updating a user's
+        cash balance, upserting a holding, recording a transaction, and
+        marking a limit order executed all need to land together, or a
+        crash partway through would double-apply (or half-apply) a trade.
+
+        Use the yielded cursor's .execute(query, params) directly (same
+        '?' placeholder convention as the rest of this class) rather than
+        calling back into DatabaseManager.execute() from inside the block
+        -- that method commits on its own and would end this transaction
+        early.
+        """
+        cursor = self._connection.cursor()
+        try:
+            yield _TransactionCursor(cursor, self._to_pg_placeholders)
+            self._connection.commit()
+        except Exception:
+            self._connection.rollback()
+            raise
+        finally:
+            cursor.close()
 
     def close(self):
         if self._connection is not None:
