@@ -22,3 +22,8 @@ class AIReviewError(Exception):
     """Raised when the AI portfolio review cannot be generated (API failure,
     missing key, or a response that couldn't be parsed into the expected
     structured format)."""
+
+
+class AICopilotError(Exception):
+    """Raised when the AI Financial Copilot cannot produce a response (LLM
+    API failure, missing key, empty message, or an unparseable response)."""
