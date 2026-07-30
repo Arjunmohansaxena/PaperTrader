@@ -13,10 +13,34 @@
                     <input type="text" id="symbol" name="symbol" class="form-control mono symbol-search" value="{{ symbol or request.args.get('symbol') or '' }}" autofocus required autocomplete="off" style="text-transform: uppercase;" placeholder="Ticker or company name">
                     <div class="suggestions"></div>
                 </div>
+            </div>
 
             <div class="form-group">
                 <label for="quantity">Quantity</label>
                 <input type="number" id="quantity" name="quantity" class="form-control mono" min="1" step="1" value="{{ quantity or '' }}" required placeholder="Number of shares">
+            </div>
+
+            <div class="form-group">
+                <label>Order Type</label>
+                <div class="order-type-toggle">
+                    <label class="order-type-option">
+                        <input type="radio" name="order_type" value="market" {{ 'checked' if order_type != 'limit' else '' }} onchange="document.getElementById('limit-price-group').style.display='none';">
+                        Market (execute now, at current price)
+                    </label>
+                    <label class="order-type-option">
+                        <input type="radio" name="order_type" value="limit" {{ 'checked' if order_type == 'limit' else '' }} onchange="document.getElementById('limit-price-group').style.display='block';">
+                        Limit (execute later, once price is reached)
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-group" id="limit-price-group" style="display: {{ 'block' if order_type == 'limit' else 'none' }};">
+                <label for="limit_price">Limit Price ($)</label>
+                <input type="number" id="limit_price" name="limit_price" class="form-control mono" min="0.01" step="0.01" placeholder="0.00">
+                <small style="color: var(--text-secondary); font-size: 0.75rem; margin-top: 0.25rem; display: block;">
+                    Order executes once the price rises to or above this value. Runs automatically in the
+                    background — you don't need to keep this page open.
+                </small>
             </div>
 
             {% if need_manual_price %}
@@ -29,7 +53,7 @@
             <input type="hidden" name="manual_price" value="">
             {% endif %}
 
-            <button type="submit" class="btn btn-primary" style="margin-top: 1rem; width: 100%;">Execute Sell Order</button>
+            <button type="submit" class="btn btn-primary" style="margin-top: 1rem; width: 100%;">Place Sell Order</button>
         </form>
         
         <div class="form-footer-link">

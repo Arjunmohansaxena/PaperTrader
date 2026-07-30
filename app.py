@@ -1,7 +1,7 @@
 import atexit
 import os
 from datetime import datetime
-from functools import wraps
+from urllib.parse import urlsplit
 
 from flask_socketio import SocketIO, emit
 from flask import jsonify 
@@ -10,10 +10,12 @@ from flask import Flask, flash, redirect, render_template, request, session, url
 from database.db_manager import DatabaseManager
 from models.portfolio import Portfolio
 from models.transaction import Transaction
+from repositories.limit_order_repository import LimitOrderRepository
 from repositories.portfolio_repository import PortfolioRepository
 from repositories.portfolio_review_repository import PortfolioReviewRepository
 from repositories.user_repository import UserRepository
 from repositories.watchlist_repository import WatchlistRepository
+from utils.auth import login_required
 from services.finnhub_stream import FinnhubPriceStream
 from services.market_data_provider import (
     get_stock_price,
@@ -23,8 +25,10 @@ from services.market_data_provider import (
     get_display_name,
     get_historical_prices,
     get_market_news,
-    get_company_news
+    get_company_news,
+    get_stock_symbol,
 )
+from ai.routes import create_ai_blueprint
 from services.ai_review_service import generate_portfolio_review
 from services.portfolio_metrics import get_portfolio_metrics, compute_portfolio_history
 from utils.exceptions import AIReviewError, StockNotFoundError
@@ -46,6 +50,9 @@ user_repo = UserRepository(db_manager)
 portfolio_repo = PortfolioRepository(db_manager)
 watchlist_repo = WatchlistRepository(db_manager)
 portfolio_review_repo = PortfolioReviewRepository(db_manager)
+limit_order_repo = LimitOrderRepository(db_manager)
+
+app.register_blueprint(create_ai_blueprint(portfolio_repo, watchlist_repo))
 
 MAX_AI_REVIEWS_PER_USER_PER_DAY = 20
 
@@ -54,17 +61,6 @@ def current_user():
     if user_id is None:
         return None
     return user_repo.get_by_id(user_id)
-
-
-def login_required(view):
-    @wraps(view)
-    def wrapped(*args, **kwargs):
-        if session.get("user_id") is None:
-            flash("Please log in first.", "error")
-            return redirect(url_for("login"))
-        return view(*args, **kwargs)
-
-    return wrapped
 
 
 def resolve_price(symbol: str, manual_price: str):
@@ -309,6 +305,8 @@ def buy():
         symbol = request.form.get("symbol", "").strip().upper()
         quantity_raw = request.form.get("quantity", "").strip()
         manual_price = request.form.get("manual_price", "").strip()
+        order_type = request.form.get("order_type", "market").strip().lower()
+        limit_price_raw = request.form.get("limit_price", "").strip()
 
         try:
             quantity = int(quantity_raw)
@@ -316,19 +314,39 @@ def buy():
                 raise ValueError
         except ValueError:
             flash("Quantity must be a positive whole number.", "error")
-            return render_template("buy.html", symbol=symbol, quantity=quantity_raw)
+            return render_template("buy.html", symbol=symbol, quantity=quantity_raw, order_type=order_type)
+
+        if order_type == "limit":
+            try:
+                limit_price = float(limit_price_raw)
+                if limit_price <= 0:
+                    raise ValueError
+            except ValueError:
+                flash("Limit price must be a positive number.", "error")
+                return render_template("buy.html", symbol=symbol, quantity=quantity_raw, order_type=order_type)
+
+            # Placed here, executed later by the standalone worker process
+            # (worker/worker.py) once the live price crosses limit_price --
+            # this route never touches cash/holdings for a limit order.
+            limit_order_repo.create_order(user.user_id, symbol, "buy", quantity, limit_price)
+            flash(
+                f"Limit order placed: buy {quantity} {symbol} at ${limit_price:.2f} or below. "
+                "It will execute automatically once the price is reached.",
+                "success",
+            )
+            return redirect(url_for("history"))
 
         price, error = resolve_price(symbol, manual_price)
         if error:
             flash(error, "error")
-            return render_template("buy.html", symbol=symbol, quantity=quantity_raw, need_manual_price=True)
+            return render_template("buy.html", symbol=symbol, quantity=quantity_raw, need_manual_price=True, order_type=order_type)
 
         portfolio = portfolio_repo.get_by_user_id(user.user_id)
         try:
             portfolio.buy_stock(symbol, quantity, price)
         except ValueError as exc:
             flash(str(exc), "error")
-            return render_template("buy.html", symbol=symbol, quantity=quantity_raw)
+            return render_template("buy.html", symbol=symbol, quantity=quantity_raw, order_type=order_type)
 
         portfolio_repo.save(portfolio, user.user_id)
         transaction = Transaction(symbol=symbol, side="buy", quantity=quantity, price=price, timestamp=datetime.now())
@@ -347,6 +365,8 @@ def sell():
         symbol = request.form.get("symbol", "").strip().upper()
         quantity_raw = request.form.get("quantity", "").strip()
         manual_price = request.form.get("manual_price", "").strip()
+        order_type = request.form.get("order_type", "market").strip().lower()
+        limit_price_raw = request.form.get("limit_price", "").strip()
 
         try:
             quantity = int(quantity_raw)
@@ -354,19 +374,38 @@ def sell():
                 raise ValueError
         except ValueError:
             flash("Quantity must be a positive whole number.", "error")
-            return render_template("sell.html", symbol=symbol, quantity=quantity_raw)
+            return render_template("sell.html", symbol=symbol, quantity=quantity_raw, order_type=order_type)
+
+        if order_type == "limit":
+            try:
+                limit_price = float(limit_price_raw)
+                if limit_price <= 0:
+                    raise ValueError
+            except ValueError:
+                flash("Limit price must be a positive number.", "error")
+                return render_template("sell.html", symbol=symbol, quantity=quantity_raw, order_type=order_type)
+
+            # Same reasoning as the buy route: the worker process owns
+            # execution of this order, not this request.
+            limit_order_repo.create_order(user.user_id, symbol, "sell", quantity, limit_price)
+            flash(
+                f"Limit order placed: sell {quantity} {symbol} at ${limit_price:.2f} or above. "
+                "It will execute automatically once the price is reached.",
+                "success",
+            )
+            return redirect(url_for("history"))
 
         price, error = resolve_price(symbol, manual_price)
         if error:
             flash(error, "error")
-            return render_template("sell.html", symbol=symbol, quantity=quantity_raw, need_manual_price=True)
+            return render_template("sell.html", symbol=symbol, quantity=quantity_raw, need_manual_price=True, order_type=order_type)
 
         portfolio = portfolio_repo.get_by_user_id(user.user_id)
         try:
             portfolio.sell_stock(symbol, quantity, price)
         except ValueError as exc:
             flash(str(exc), "error")
-            return render_template("sell.html", symbol=symbol, quantity=quantity_raw)
+            return render_template("sell.html", symbol=symbol, quantity=quantity_raw, order_type=order_type)
 
         portfolio_repo.save(portfolio, user.user_id)
         transaction = Transaction(symbol=symbol, side="sell", quantity=quantity, price=price, timestamp=datetime.now())
@@ -383,7 +422,26 @@ def history():
     user = current_user()
     transactions = portfolio_repo.get_transaction_history(user.user_id)
     company_names = {txn.symbol: get_display_name(txn.symbol) for txn in transactions}
-    return render_template("history.html", transactions=transactions, company_names=company_names)
+    pending_orders = [
+        order for order in limit_order_repo.get_by_user_id(user.user_id) if order.status == "PENDING"
+    ]
+    return render_template(
+        "history.html",
+        transactions=transactions,
+        company_names=company_names,
+        pending_orders=pending_orders,
+    )
+
+
+@app.route("/orders/<int:order_id>/cancel", methods=["POST"])
+@login_required
+def cancel_limit_order(order_id):
+    user = current_user()
+    if limit_order_repo.cancel(order_id, user.user_id):
+        flash("Limit order cancelled.", "success")
+    else:
+        flash("That order can't be cancelled (already resolved, or not yours).", "error")
+    return redirect(url_for("history"))
 
 @app.route("/api/search")
 @login_required
@@ -396,6 +454,19 @@ def api_search():
     except Exception:
         results = []
     return jsonify(results)
+
+
+def _redirect_to_next(default_endpoint, **default_kwargs):
+    """Redirect back to wherever the request came from (the 'next' field
+    posted by the form), falling back to `default_endpoint` if it's absent
+    or unsafe. Only same-site relative paths are honored so this can't be
+    abused as an open redirect."""
+    next_url = request.form.get("next")
+    if next_url:
+        parsed = urlsplit(next_url)
+        if not parsed.scheme and not parsed.netloc and next_url.startswith("/"):
+            return redirect(next_url)
+    return redirect(url_for(default_endpoint, **default_kwargs))
 
 
 @app.route("/watchlists")
@@ -449,31 +520,31 @@ def add_watchlist_stock(watchlist_id):
     symbol = raw_input_value.upper()
     if not symbol:
         flash("Symbol cannot be empty.", "error")
-        return redirect(url_for("watchlists_view"))
+        return _redirect_to_next("watchlists_view")
         
     if " " in raw_input_value or len(raw_input_value) > 5:
         try:
             symbol = get_stock_symbol(raw_input_value)
         except StockNotFoundError as exc:
             flash(str(exc), "error")
-            return redirect(url_for("watchlists_view"))
+            return _redirect_to_next("watchlists_view")
             
     user = current_user()
     wl = watchlist_repo.get_by_id(watchlist_id)
     if not wl or wl.user_id != user.user_id:
         flash("Watchlist not found.", "error")
-        return redirect(url_for("watchlists_view"))
+        return _redirect_to_next("watchlists_view")
         
     try:
         get_stock_price(symbol)
     except Exception as exc:
         if "FINNHUB_API_KEY is not set" not in str(exc) and "No price found" in str(exc):
             flash(f"Stock '{symbol}' not found.", "error")
-            return redirect(url_for("watchlists_view"))
+            return _redirect_to_next("watchlists_view")
             
     watchlist_repo.add_stock(watchlist_id, symbol)
     flash(f"Added {symbol} to watchlist '{wl.name}'.", "success")
-    return redirect(url_for("watchlists_view"))
+    return _redirect_to_next("watchlists_view")
 
 
 @app.route("/watchlists/<int:watchlist_id>/remove", methods=["POST"])
@@ -484,11 +555,11 @@ def remove_watchlist_stock(watchlist_id):
     wl = watchlist_repo.get_by_id(watchlist_id)
     if not wl or wl.user_id != user.user_id:
         flash("Watchlist not found.", "error")
-        return redirect(url_for("watchlists_view"))
+        return _redirect_to_next("watchlists_view")
         
     watchlist_repo.remove_stock(watchlist_id, symbol)
     flash(f"Removed {symbol} from watchlist '{wl.name}'.", "success")
-    return redirect(url_for("watchlists_view"))
+    return _redirect_to_next("watchlists_view")
 
 
 @app.route("/watchlists/<int:watchlist_id>/delete", methods=["POST"])
@@ -503,6 +574,12 @@ def delete_watchlist(watchlist_id):
     watchlist_repo.delete(watchlist_id)
     flash(f"Deleted watchlist '{wl.name}'.", "success")
     return redirect(url_for("watchlists_view"))
+
+
+@app.route("/chat")
+@login_required
+def chat_view():
+    return render_template("chat.html")
 
 
 @app.route("/news")
@@ -540,7 +617,6 @@ _last_prices = {}
 
 
 def _emit_price_updates(updates: dict):
-    global _last_prices
     if not updates:
         return
     _last_prices.update(updates)

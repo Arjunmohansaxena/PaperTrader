@@ -905,6 +905,27 @@ a:hover {
     color: var(--text-secondary);
 }
 
+.order-type-toggle {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.order-type-option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    font-weight: 400;
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+.order-type-option input[type="radio"] {
+    accent-color: var(--accent-blue, #3b82f6);
+    cursor: pointer;
+}
+
 .form-control {
     background: #000;
     border: 1px solid var(--border-primary);
@@ -1623,4 +1644,76 @@ a:hover {
 @keyframes ai-review-shimmer {
     0% { background-position: 200% 0; }
     100% { background-position: -200% 0; }
+}
+/* Help Chat */
+.chat-card {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 220px);
+    min-height: 420px;
+    padding: 0;
+    overflow: hidden;
+}
+
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+}
+
+.chat-message {
+    display: flex;
+    max-width: 75%;
+}
+
+.chat-message-user {
+    align-self: flex-end;
+    justify-content: flex-end;
+}
+
+.chat-message-assistant {
+    align-self: flex-start;
+    justify-content: flex-start;
+}
+
+.chat-bubble {
+    padding: 0.65rem 0.9rem;
+    border-radius: 12px;
+    font-size: 0.88rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.chat-message-assistant .chat-bubble {
+    background: var(--bg-card-hover);
+    border: 1px solid var(--border-primary);
+    color: var(--text-primary);
+    border-bottom-left-radius: 3px;
+}
+
+.chat-message-user .chat-bubble {
+    background: var(--accent-blue);
+    color: #ffffff;
+    border-bottom-right-radius: 3px;
+}
+
+.chat-bubble-typing {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.chat-input-row {
+    display: flex;
+    gap: 0.6rem;
+    padding: 1rem 1.25rem;
+    border-top: 1px solid var(--border-primary);
+    background: var(--bg-secondary);
+}
+
+.chat-input-row .form-control {
+    flex: 1;
 }
