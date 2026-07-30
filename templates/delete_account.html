@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Delete Account — PaperTrader{% endblock %}
+{% block content %}
+<div class="form-container" style="margin: 6rem auto;">
+    <div class="form-card">
+        <h1 style="text-align: center; margin-bottom: 0.25rem;">Delete your account</h1>
+        <p class="form-subtitle" style="text-align: center;">
+            This permanently deletes <strong>{{ user.username }}</strong>'s account, cash balance,
+            holdings, transaction history, watchlists, and pending orders. This cannot be undone.
+        </p>
+
+        <form method="post">
+            <div class="form-group">
+                <label for="password">Confirm your password</label>
+                <input type="password" id="password" name="password" class="form-control" required
+                       placeholder="••••••••" autofocus>
+            </div>
+
+            <button type="submit" class="btn btn-danger" style="margin-top: 1.25rem; width: 100%;">
+                Permanently delete my account
+            </button>
+        </form>
+
+        <p class="form-footer-link">
+            <a href="{{ url_for('dashboard') }}" style="color: var(--accent-blue);">Cancel and go back</a>
+        </p>
+    </div>
+</div>
+{% endblock %}

@@ -55,3 +55,12 @@ class UserRepository:
         if row is None:
             return None
         return User(username=row[1], email=row[2], password="", user_id=row[0])
+
+    def delete_user(self, user_id: int) -> bool:
+        """Permanently deletes the user row. Every other table
+        (holdings, transactions, watchlists, watchlist_stocks,
+        portfolio_reviews, limit_orders) has ON DELETE CASCADE back to
+        users in schema.sql, so this single statement is enough to
+        remove all of that user's data along with the account."""
+        cursor = self.db_manager.execute("DELETE FROM users WHERE user_id = ?", (user_id,))
+        return cursor.rowcount > 0
