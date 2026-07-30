@@ -116,6 +116,6 @@ def ask(user_id: int, portfolio_repo, watchlist_repo, message: str, history: lis
             function_response_parts.append({
                 "functionResponse": {"name": fc.get("name"), "response": result}
             })
-        contents.append({"role": "function", "parts": function_response_parts})
+        contents.append({"role": "user", "parts": function_response_parts})
 
     raise AICopilotError("The AI Copilot could not finish answering (too many tool calls in a row).")
