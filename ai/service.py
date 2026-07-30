@@ -54,6 +54,26 @@ MAX_RETRIES = 2
 RETRY_BACKOFF_SECONDS = 2
 
 
+def _extract_retry_delay_seconds(response) -> float | None:
+    """Gemini's 429 responses include a structured RetryInfo.retryDelay
+    (e.g. "8s") telling you exactly how long it wants you to wait --
+    honoring that is far more accurate than guessing a fixed backoff."""
+    if response is None:
+        return None
+    try:
+        details = response.json().get("error", {}).get("details", [])
+    except ValueError:
+        return None
+    for detail in details:
+        delay = detail.get("retryDelay")
+        if delay and delay.endswith("s"):
+            try:
+                return float(delay[:-1])
+            except ValueError:
+                continue
+    return None
+
+
 def _call_gemini(contents: list[dict]) -> dict:
     payload = {
         "system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]},
@@ -77,12 +97,12 @@ def _call_gemini(contents: list[dict]) -> dict:
             last_exc = exc
             status = exc.response.status_code if exc.response is not None else None
             if status in RETRYABLE_STATUS_CODES and attempt < MAX_RETRIES:
-                # A brief backoff smooths over short-lived rate-limit blips
-                # (a burst of requests hitting a per-minute cap) without
-                # making the user manually retry. It does nothing for a
-                # genuinely exhausted daily/project quota -- that still
-                # surfaces as a clear error below instead of hanging.
-                time.sleep(RETRY_BACKOFF_SECONDS * (attempt + 1))
+                # Prefer Gemini's own suggested delay; fall back to a
+                # fixed backoff schedule if it isn't present. Cap it so a
+                # server-suggested delay can't stall the request forever.
+                suggested = _extract_retry_delay_seconds(exc.response)
+                delay = suggested if suggested is not None else RETRY_BACKOFF_SECONDS * (attempt + 1)
+                time.sleep(min(delay, 15))
                 continue
             break
         except requests.RequestException as exc:
@@ -99,8 +119,9 @@ def _call_gemini(contents: list[dict]) -> dict:
 
     if status == 429:
         raise AICopilotError(
-            "The AI Copilot is temporarily rate-limited or has hit its usage quota. "
-            "Please wait a bit and try again, or check the project's Gemini API quota."
+            "The AI Copilot has hit its Gemini API rate limit or free-tier quota. "
+            "Please wait a bit and try again, or check the project's plan/billing "
+            "and quota at https://ai.google.dev/gemini-api/docs/rate-limits."
             + (f" ({detail})" if detail else "")
         ) from exc
 
@@ -139,23 +160,26 @@ def ask(user_id: int, portfolio_repo, watchlist_repo, message: str, history: lis
         data = _call_gemini(contents)
         parts = _extract_parts(data)
 
-        function_calls = [p["functionCall"] for p in parts if "functionCall" in p]
+        function_call_parts = [p for p in parts if "functionCall" in p]
         text_pieces = [p["text"] for p in parts if "text" in p]
 
-        if not function_calls:
+        if not function_call_parts:
             reply_text = "".join(text_pieces).strip()
             if not reply_text:
                 raise AICopilotError("The AI service returned an empty response.")
             return reply_text
 
-        # Echo the model's own function-call turn back, then supply the
-        # tool result(s) as a "user" turn carrying functionResponse parts
-        # (Gemini's contents schema only supports "user"/"model" roles --
-        # there is no "function" role), and let it continue.
-        contents.append({"role": "model", "parts": [{"functionCall": fc} for fc in function_calls]})
+        # Echo the model's own function-call turn back *exactly as received*
+        # -- including any thoughtSignature field alongside functionCall.
+        # Gemini 3.x models require that signature to be returned verbatim
+        # on the next turn (see thought-signatures docs); rebuilding the
+        # part from scratch (e.g. {"functionCall": fc}) silently drops it
+        # and the next request 400s with "missing a thought_signature".
+        contents.append({"role": "model", "parts": function_call_parts})
 
         function_response_parts = []
-        for fc in function_calls:
+        for part in function_call_parts:
+            fc = part["functionCall"]
             result = tools.execute(fc.get("name"), fc.get("args") or {})
             function_response_parts.append({
                 "functionResponse": {"name": fc.get("name"), "response": result}
